@@ -36,7 +36,7 @@ def login(username: str, password: str) -> tuple[str, list[int]]:
 
 def logout(session):
     '''Logs user out using a valid session_id'''
-    
+
     if session:
         url = f"{base_url}/v1/logout.web?s={session}"
         response = requests.request("POST", url)
@@ -59,7 +59,7 @@ def create_search(session, cameraId, start, stop):
     pprint(response.json())
 
 
-def exportRequest(session, cameraId, start, stop, name=None):
+def export_request(session, cameraId, start, stop, name=None):
 
     url = f"{base_url}/v1/export.web?camera={cameraId}&s={session}&start={start}&end={stop}&format=mp4"
     if name:
@@ -72,7 +72,7 @@ def exportRequest(session, cameraId, start, stop, name=None):
     return export_id
 
 
-def exportStatus(export_id):
+def export_status(export_id):
 
     url = f"{base_url}/v1/export.web?export={export_id}"
 
@@ -83,7 +83,7 @@ def exportStatus(export_id):
     return progress
 
 
-def exportDownload(export_id):
+def export_download(export_id):
 
     url = f"{base_url}/v1/export.web?export={export_id}&action=download"
 
@@ -99,10 +99,14 @@ def exportDownload(export_id):
     print(response.text)
 
 
-def exportDelete(export_id):
+def export_delete(export_id):
 
     url = f"{base_url}/v1/export.web?export={export_id}&action=download"
 
     response = requests.request("GET", url)
     
     print(response.text)
+
+
+def extract_video():
+    pass

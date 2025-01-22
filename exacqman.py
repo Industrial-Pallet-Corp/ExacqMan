@@ -6,7 +6,7 @@ import exacqman_api
 import sys
 
 
-def importConfig():
+def import_config():
     '''deprecated unless another use comes up (code is duplicated in main())'''
 
     config = ConfigParser()
@@ -19,8 +19,7 @@ def importConfig():
     return config
 
 
-
-def timelapseVideo(original_video_path, timelapsed_video_path=None, multiplier=10):
+def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10):
     '''timelapses a video by the multiplier (must be an integer)'''
 
     # If not specified, rename the output file to the same as input with speed appended to it (e.g. video_4x.mp4)
@@ -49,7 +48,6 @@ def timelapseVideo(original_video_path, timelapsed_video_path=None, multiplier=1
     return timelapsed_video_path
 
 
-#Compresses video at a provided bitrate
 def compress_video(original_video_path, compressed_video_path=None, target_bitrate="500K", codec = "libx264"):
     '''Compresses video at a provided bitrate'''
 
@@ -74,12 +72,11 @@ def main(extracted_video):
     username = config['Auth']['user']
     password = config['Auth']['password']'''
 
+
     #extracted_video = "C:/Users/bluea/Python/Test Workspace/video_tweaking/python-test.mp4"
-    timelapsed_video_path = timelapseVideo(extracted_video)
+    timelapsed_video_path = timelapse_video(extracted_video)
     compress_video(timelapsed_video_path)
 
-
-    
 
 
 if __name__ == "__main__":
