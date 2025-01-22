@@ -34,7 +34,7 @@ def login(username: str, password: str) -> tuple[str, list[int]]:
     return session_id, cameras
 
 
-def logout(session):
+def logout(session: str):
     '''Logs user out using a valid session_id'''
 
     if session:
@@ -45,8 +45,27 @@ def logout(session):
         print("No active session to logout.")
 
 
-def create_search(session, cameraId, start, stop):
-    url = f"{base_url}/v1/search.web?s={session}&start={start}&end={stop}&camera={cameraId}&output=json"
+def create_search(session: str, camera_id: int, start: str, stop: str) -> str:
+    """
+    Creates a search request for video recordings.
+
+    Args:
+        session (str): The session ID for authentication.
+        camera_id (int): The ID of the camera to search.
+        start (str): The start time of the search in RFC3339 UTC format.
+        stop (str): The stop time of the search in RFC3339 UTC format.
+
+    Returns:
+        str: The search ID of the created search.
+
+    Raises:
+        requests.exceptions.RequestException: If the request fails.
+
+    Example:
+        search_id = create_search(session='abcd1234', camera_id=1, start='2022-01-01T00:00:00Z', stop='2022-01-01T01:00:00Z')
+    """
+
+    url = f"{base_url}/v1/search.web?s={session}&start={start}&end={stop}&camera={camera_id}&output=json"
     print(url)
 
     response = requests.request("GET", url)
@@ -56,12 +75,35 @@ def create_search(session, cameraId, start, stop):
     else: 
         print(f'Request failed with status code: {response.status_code}')
 
+    search_id = json.loads(response.text)['search_id']
+
     pprint(response.json())
 
+    return search_id
 
-def export_request(session, cameraId, start, stop, name=None):
 
-    url = f"{base_url}/v1/export.web?camera={cameraId}&s={session}&start={start}&end={stop}&format=mp4"
+def export_request(session: str, camera_id: int, start: str, stop: str, name: str=None) -> str:
+    """
+    Initiates an export request for video recordings.
+
+    Args:
+        session (str): The session ID for authentication.
+        camera_id (int): The ID of the camera to export video from.
+        start (str): The start time of the export in ISO 8601 format.
+        stop (str): The end time of the export in ISO 8601 format.
+        name (str, optional): The name of the exported file. Defaults to None.
+
+    Returns:
+        str: The export ID of the created export request.
+
+    Raises:
+        requests.exceptions.RequestException: If the request fails.
+
+    Example:
+        export_id = export_request(session='abcd1234', camera_id=1, start='2022-01-01T00:00:00Z', stop='2022-01-01T01:00:00Z', name='video_export')
+    """
+
+    url = f"{base_url}/v1/export.web?camera={camera_id}&s={session}&start={start}&end={stop}&format=mp4"
     if name:
         url = url+f'&name={name}'
 
@@ -72,7 +114,7 @@ def export_request(session, cameraId, start, stop, name=None):
     return export_id
 
 
-def export_status(export_id):
+def export_status(export_id:str) -> str:
 
     url = f"{base_url}/v1/export.web?export={export_id}"
 
@@ -83,7 +125,7 @@ def export_status(export_id):
     return progress
 
 
-def export_download(export_id):
+def export_download(export_id:str):
 
     url = f"{base_url}/v1/export.web?export={export_id}&action=download"
 
@@ -99,7 +141,7 @@ def export_download(export_id):
     print(response.text)
 
 
-def export_delete(export_id):
+def export_delete(export_id:str):
 
     url = f"{base_url}/v1/export.web?export={export_id}&action=download"
 
@@ -108,5 +150,7 @@ def export_delete(export_id):
     print(response.text)
 
 
-def extract_video():
+def get_video(camera: int, start: str, end: str):
+    ''''''
+    # TODO condense the request/status/download export calls into one function (possibly also the delete command)
     pass
