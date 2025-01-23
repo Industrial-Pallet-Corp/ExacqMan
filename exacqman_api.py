@@ -1,4 +1,5 @@
 import requests, json
+from time import sleep
 from pprint import pprint
 
 base_url = "http://10.20.4.12"
@@ -43,6 +44,14 @@ def logout(session: str):
         print(response.text)
     else:
         print("No active session to logout.")
+
+
+def list_cameras(session):
+    url = f"{base_url}v1/config.web?s={session}&output=json"
+
+    response = requests.request("GET", url)
+    cameras = json.loads(response.text)['Cameras']
+    return cameras
 
 
 def create_search(session: str, camera_id: int, start: str, stop: str) -> str:
@@ -114,18 +123,23 @@ def export_request(session: str, camera_id: int, start: str, stop: str, name: st
     return export_id
 
 
-def export_status(export_id:str) -> str:
+def export_status(export_id:str) -> bool:
 
     url = f"{base_url}/v1/export.web?export={export_id}"
 
     response = requests.request("GET", url)
     progress = json.loads(response.text)['progress']
-    pprint(response.json())
+    #pprint(response.json())
+    
+    if progress == 100:
+        print('Export ready')
+        return True
+    else:
+        print(f'Export in progress: {progress}% complete')
+        return False
 
-    return progress
 
-
-def export_download(export_id:str):
+def export_download(export_id:str) -> str:
 
     url = f"{base_url}/v1/export.web?export={export_id}&action=download"
 
@@ -138,19 +152,43 @@ def export_download(export_id:str):
 
     print(f"Video saved successfully as {file_name}!")
 
-    print(response.text)
+    return file_name
 
 
 def export_delete(export_id:str):
 
-    url = f"{base_url}/v1/export.web?export={export_id}&action=download"
+    url = f"{base_url}/v1/export.web?export={export_id}&action=finish"
 
     response = requests.request("GET", url)
     
     print(response.text)
 
 
-def get_video(camera: int, start: str, end: str):
+def get_video(session: str, camera: int, start: str, stop: str):
     ''''''
-    # TODO condense the request/status/download export calls into one function (possibly also the delete command)
-    pass
+    ''' 
+    TODO condense the request/status/download export calls into one function (possibly also the delete command)
+    need to add error checking as well for different fail states (export status stuck at 0)
+    '''
+
+    export_id = export_request(session, camera, start, stop)
+
+    sleep(2) #wait briefly before checking the status of the export
+    
+    count = 0
+    while not export_status(export_id) and count<5:
+        sleep(5)
+        count += 1
+    
+    if count < 5:
+        filename = export_download(export_id)
+    else:
+        print('Export failed. Deleting request')
+
+    sleep(2) #give time after downloading before attempting delete
+    export_delete(export_id)
+    
+    if filename:
+        return filename
+    else:
+        return None
