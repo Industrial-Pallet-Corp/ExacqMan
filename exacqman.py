@@ -2,7 +2,7 @@
 from configparser import ConfigParser
 from moviepy import VideoFileClip
 from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, CAP_PROP_FPS
-import exacqman_api
+import exacqman_api as exapi
 import sys
 
 
@@ -63,23 +63,26 @@ def compress_video(original_video_path, compressed_video_path=None, target_bitra
     return compressed_video_path
 
 
-def main(extracted_video):
+def main():
     # TODO final main should take (door_number, start, end) as parameters, for now it just timelapses and compresses a video file
 
-    '''config = ConfigParser()
-    config.read('config.ini')
+    # config = ConfigParser()
+    # config.read('config.ini')
 
-    username = config['Auth']['user']
-    password = config['Auth']['password']'''
+    # username = config['Auth']['user']
+    # password = config['Auth']['password']
 
-
-    #extracted_video = "C:/Users/bluea/Python/Test Workspace/video_tweaking/python-test.mp4"
+    # session, cameras = exapi.login(username, password)
+    # exapi.get_video(session, cameras[0], '2025-01-15T14:50:21Z', '2025-01-15T15:50:21Z')
+    # exapi.logout(session)
+    extracted_video = "Export.mp4"
     timelapsed_video_path = timelapse_video(extracted_video)
     compress_video(timelapsed_video_path)
 
 
 
 if __name__ == "__main__":
-    main(sys.argv[1]) # reads the file from the command line interface
+    # main(sys.argv[1]) # reads the file from the command line interface
     # TODO add error checking to ensure format of CLI command is correct
+    main()
 
