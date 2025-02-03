@@ -71,7 +71,7 @@ def main():
     arg_parser.add_argument('door_number', type=str, help='door number of camera wanted')
     arg_parser.add_argument('start', type=str, help='starting timestamp of video requested')
     arg_parser.add_argument('end', type=str, help='ending timestamp of video requested')
-    arg_parser.add_argument('--config_file', type=str, help='filename for local config file')
+    arg_parser.add_argument('config_file', type=str, help='filename for local config file')
     arg_parser.add_argument('--output_name', type=str, help='desired filename')
 
     args = arg_parser.parse_args()
