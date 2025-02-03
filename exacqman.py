@@ -2,7 +2,8 @@
 from configparser import ConfigParser
 from moviepy import VideoFileClip
 from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, CAP_PROP_FPS
-import exacqman_api as exapi
+import exacvision as exapi
+import argparse
 import sys
 
 
@@ -65,15 +66,31 @@ def compress_video(original_video_path, compressed_video_path=None, target_bitra
 
 def main():
     # TODO final main should take (door_number, start, end) as parameters, for now it just timelapses and compresses a video file
+    arg_parser = argparse.ArgumentParser()
+
+    arg_parser.add_argument('door_number', type=str, help='door number of camera wanted')
+    arg_parser.add_argument('start', type=str, help='starting timestamp of video requested')
+    arg_parser.add_argument('end', type=str, help='ending timestamp of video requested')
+    arg_parser.add_argument('--config_file', type=str, help='filename for local config file')
+    arg_parser.add_argument('--output_name', type=str, help='desired filename')
+
+    args = arg_parser.parse_args()
+    
+    if args.config_file is None:
+        print('Please include config file for Exacqman.py')
+        quit
+
 
     config = ConfigParser()
-    config.read('config.ini')
+    config.read(args.config_file)
+
 
     username = config['Auth']['user']
     password = config['Auth']['password']
+    cameras = config['Cameras']
 
-    session, cameras = exapi.login(username, password)
-    video_filename = exapi.get_video(session, cameras[0], '2025-01-15T13:50:21Z', '2025-01-15T15:35:21Z')
+    session, camera_list = exapi.login(username, password)
+    video_filename = exapi.get_video(session, cameras.get(args.door_number), args.start, args.end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
     exapi.logout(session)
 
     extracted_video = video_filename
