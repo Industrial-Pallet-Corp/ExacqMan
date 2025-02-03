@@ -1,6 +1,7 @@
 import requests, json
 from time import sleep
 from pprint import pprint
+from tqdm import tqdm
 
 base_url = "http://10.20.4.12"
 
@@ -147,8 +148,20 @@ def export_download(export_id:str) -> str:
 
     file_name = response.headers.get('Content-Disposition').split('filename=')[-1].strip('"')
 
-    with open(file_name, 'wb') as file:
-        file.write(response.content)
+    total_size = int(response.headers.get('content-length', 0))
+
+    # Open the file in write-binary mode and initialize the progress bar
+    with open(file_name, 'wb') as file, tqdm(
+        desc=file_name,
+        total=total_size,
+        unit='iB',
+        unit_scale=True,
+        unit_divisor=1024
+    ) as bar:
+        # Iterate over the response data in chunks and update the progress bar
+        for data in response.iter_content(chunk_size=1024):
+            size = file.write(data)
+            bar.update(size)
 
     print(f"Video saved successfully as {file_name}!")
 
@@ -164,28 +177,28 @@ def export_delete(export_id:str):
     print(response.text)
 
 
-def get_video(session: str, camera: int, start: str, stop: str):
+def get_video(session: str, camera: int, start: str, stop: str, video_filename: str):
     ''''''
     ''' 
     TODO condense the request/status/download export calls into one function (possibly also the delete command)
     need to add error checking as well for different fail states (export status stuck at 0)
     '''
 
-    export_id = export_request(session, camera, start, stop)
+    export_id = export_request(session, camera, start, stop, name = video_filename)
 
-    sleep(2) #wait briefly before checking the status of the export
+    sleep(2)  # Wait briefly before checking the status of the export
     
     count = 0
     while not export_status(export_id) and count<5:
         sleep(5)
         count += 1
     
-    if count < 5:
+    if count < 10:
         filename = export_download(export_id)
     else:
         print('Export failed. Deleting request')
 
-    sleep(2) #give time after downloading before attempting delete
+    sleep(2)  # Give time after downloading before attempting delete
     export_delete(export_id)
     
     if filename:
