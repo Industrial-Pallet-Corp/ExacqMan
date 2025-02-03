@@ -144,7 +144,7 @@ def export_download(export_id:str) -> str:
 
     url = f"{base_url}/v1/export.web?export={export_id}&action=download"
 
-    response = requests.request("GET", url)
+    response = requests.get(url, stream=True)
 
     file_name = response.headers.get('Content-Disposition').split('filename=')[-1].strip('"')
 
@@ -156,12 +156,15 @@ def export_download(export_id:str) -> str:
         total=total_size,
         unit='iB',
         unit_scale=True,
-        unit_divisor=1024
+        unit_divisor=1024,
+        # file=sys.stdout,  # Ensure progress bar prints to standard output
+        # ncols=80,  # Adjust the width of the progress bar
     ) as bar:
         # Iterate over the response data in chunks and update the progress bar
         for data in response.iter_content(chunk_size=1024):
             size = file.write(data)
             bar.update(size)
+            # sys.stdout.flush()  # Force flush standard output
 
     print(f"Video saved successfully as {file_name}!")
 
@@ -178,10 +181,8 @@ def export_delete(export_id:str):
 
 
 def get_video(session: str, camera: int, start: str, stop: str, video_filename: str):
-    ''''''
     ''' 
-    TODO condense the request/status/download export calls into one function (possibly also the delete command)
-    need to add error checking as well for different fail states (export status stuck at 0)
+    TODO add error checking for different fail states (export status stuck at 0)
     '''
 
     export_id = export_request(session, camera, start, stop, name = video_filename)
