@@ -31,8 +31,8 @@ def login(username: str, password: str) -> tuple[str, list[int]]:
     session_id = json.loads(response.text)['sessionId']
     cameras = json.loads(response.text)['group']['cameras']
 
-    pprint(response.json())
-    print(session_id)
+    #pprint(response.json())
+    # print(session_id)
     return session_id, cameras
 
 
@@ -87,7 +87,7 @@ def create_search(session: str, camera_id: int, start: str, stop: str) -> str:
 
     search_id = json.loads(response.text)['search_id']
 
-    pprint(response.json())
+    # pprint(response.json())
 
     return search_id
 
@@ -119,7 +119,7 @@ def export_request(session: str, camera_id: int, start: str, stop: str, name: st
 
     response = requests.request("GET", url)
     export_id = json.loads(response.text)['export_id']
-    pprint(response.json())
+    # pprint(response.json())
 
     return export_id
 
