@@ -42,7 +42,7 @@ def logout(session: str):
     if session:
         url = f"{base_url}/v1/logout.web?s={session}"
         response = requests.request("POST", url)
-        print(response.text)
+        return(response.text)
     else:
         print("No active session to logout.")
 
@@ -177,7 +177,7 @@ def export_delete(export_id:str):
 
     response = requests.request("GET", url)
     
-    print(response.text)
+    return(response.text)
 
 
 def get_video(session: str, camera: int, start: str, stop: str, video_filename: str):
