@@ -128,30 +128,69 @@ def main():
     # TODO final main should take (door_number, start, end) as parameters, for now it just timelapses and compresses a video file
     arg_parser = argparse.ArgumentParser()
 
-    arg_parser.add_argument('door_number', type=str, help='door number of camera wanted')
-    arg_parser.add_argument('start', type=str, help='starting timestamp of video requested')
-    arg_parser.add_argument('end', type=str, help='ending timestamp of video requested')
-    arg_parser.add_argument('config_file', type=str, help='filepath of local config file')
-    arg_parser.add_argument('--output_name', type=str, help='desired filepath')
-    arg_parser.add_argument('--quality', type=str, help='desired video quality (low, medium, high)')
+    # Use default if no subcommand is provided
+    if len(sys.argv) > 1 and sys.argv[1] not in ['default', 'compress', 'timelapse']:
+        sys.argv.insert(1, 'default')
+
+    subparsers = arg_parser.add_subparsers(dest='command')
+
+    # Default mode subcommand
+    default_parser = subparsers.add_parser('default', help='Extract, timelapse, and compress a video file')
+    default_parser.add_argument('door_number', type=str, help='Door number of camera wanted')
+    default_parser.add_argument('start', type=str, help='Starting timestamp of video requested')
+    default_parser.add_argument('end', type=str, help='Ending timestamp of video requested')
+    default_parser.add_argument('config_file', type=str, help='Filepath of local config file')
+    default_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
+    default_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
+    default_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
+
+    # Compress subcommand
+    compress_parser = subparsers.add_parser('compress', help='Compress a video file')
+    compress_parser.add_argument('video_filename', type=str, help='Video file to compress')
+    compress_parser.add_argument('compression_quality', type=str, choices=['low', 'medium', 'high'], help='Desired compression quality')
+    compress_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
+
+    # Timelapse subcommand
+    timelapse_parser = subparsers.add_parser('timelapse', help='Create a timelapse video')
+    timelapse_parser.add_argument('video_filename', type=str, help='Video file for timelapse')
+    timelapse_parser.add_argument('multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
+    timelapse_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
 
     args = arg_parser.parse_args()
+
+    if args.command == 'default':
     
-    config = import_config(args.config_file)
+        config = import_config(args.config_file)
 
-    username = config['Auth']['user']
-    password = config['Auth']['password']
-    cameras = config['Cameras']
-    multiplier = int(config['Settings']['timelapse_multiplier'])
-    quality = config['Settings']['compression_level']
+        username = config['Auth']['user']
+        password = config['Auth']['password']
+        cameras = config['Cameras']
+
+        if args.multiplier:
+            multiplier = args.multiplier
+        else:
+            multiplier = int(config['Settings']['timelapse_multiplier'])
+
+        if args.quality:
+            quality = args.quality
+        else:
+            quality = config['Settings']['compression_level']
 
 
-    session, camera_list = exapi.login(username, password)
-    extracted_video_name = exapi.get_video(session, cameras.get(args.door_number), args.start, args.end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
-    exapi.logout(session)
+        session, camera_list = exapi.login(username, password)
+        extracted_video_name = exapi.get_video(session, cameras.get(args.door_number), args.start, args.end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
+        exapi.logout(session)
 
-    timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=multiplier)
-    compress_video(timelapsed_video_path, quality=quality)
+        timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=multiplier)
+        compress_video(timelapsed_video_path, quality=quality)
+
+    if args.command == 'compress':
+
+        compress_video(args.video_filename, args.output_name, quality=args.compression_quality)
+
+    if args.command == 'timelapse':
+
+        timelapse_video(args.video_filename, args.output_name, multiplier=args.multiplier)
 
 
 
