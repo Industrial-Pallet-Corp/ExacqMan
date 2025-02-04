@@ -7,17 +7,64 @@ import argparse
 import sys
 
 
-def import_config():
-    '''deprecated unless another use comes up (code is duplicated in main())'''
-
+def import_config(config_file):
     config = ConfigParser()
-    config.read('config.ini')
+    config.read(config_file)
 
-    username = config['Auth']['user']
-    password = config['Auth']['password']
+    if validate_config(config) == False:
+        quit
 
-    print (f'{username} : {password}')
     return config
+
+
+def validate_config(config):
+
+    errors = []
+    fatal = False
+
+    if 'user' not in config['Auth'] or not config['Auth']['user'].strip():
+        errors.append('user is missing or empty')
+        fatal = True
+    
+    if 'password' not in config['Auth'] or not config['Auth']['password'].strip():
+        errors.append('password is missing or empty')
+        fatal = True
+
+    if 'server_ip' not in config['Network'] or not config['Network']['server_ip'].strip():
+        errors.append('server_ip is missing or empty')
+        fatal = True
+
+    if 'timelapse_multiplier' not in config['Settings'] or not config['Settings']['timelapse_multiplier'].strip():
+        errors.append('timelapse_multiplier is missing or empty. Program will default to 10')
+    else:
+        try:
+            int(config['Settings']['timelapse_multiplier'])
+        except ValueError:
+            errors.append('timelapse_multiplier must be an integer')
+            fatal = True
+
+    if 'compression_level' not in config['Settings'] or not config['Settings']['compression_level'].strip():
+        errors.append('compression_level is missing or empty. Program will default to medium')
+
+    for camera_number, camera_value in config['Cameras'].items():
+            if not camera_value.strip():
+                errors.append(f'Camera {camera_number} has no id')
+                fatal = True
+            else:
+                try:
+                    int(camera_value)
+                except ValueError:
+                    errors.append(f'Camera ID {camera_number} must be an integer')
+                    fatal = True
+
+
+    if errors:
+        print(f"{'\n'.join(errors)}")
+    
+    if fatal:
+        return False
+    else:
+        return True
 
 
 def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10):
@@ -49,16 +96,29 @@ def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=
     return timelapsed_video_path
 
 
-def compress_video(original_video_path, compressed_video_path=None, target_bitrate="500K", codec = "libx264"):
+def compress_video(original_video_path, compressed_video_path=None, quality = 'medium', codec = "libx264"):
     '''Compresses video at a provided bitrate'''
 
     # If not specified, rename the output file to the same as input with codec and bitrate appended to it (e.g. video_libx264_500K.mp4)
     if compressed_video_path is None:
-        compressed_video_path = f'_{codec}_{target_bitrate}.'.join(original_video_path.split('.'))
+        compressed_video_path = f'_{codec}_{quality}.'.join(original_video_path.split('.'))
+
+    if quality == 'low':
+        bitrate = "250K"
+        resolution = (1280, 720)
+    elif quality == 'medium':
+        bitrate = "500K"
+        resolution = (1920, 1080)
+    elif quality == 'high':
+        bitrate = "1M"
+        resolution = (3840, 2160)
+    else:
+        print('please enter a valid compression quality')
+        quit
 
     video = VideoFileClip(original_video_path)
     print('Beginning Video compression.')
-    video.write_videofile(compressed_video_path, bitrate=target_bitrate, codec=codec) #libx264 gave really good compression per runtime
+    video.write_videofile(compressed_video_path, bitrate=bitrate, codec=codec) #libx264 gave really good compression per runtime
     print('Video successfully compressed.')
 
     return compressed_video_path
@@ -71,31 +131,27 @@ def main():
     arg_parser.add_argument('door_number', type=str, help='door number of camera wanted')
     arg_parser.add_argument('start', type=str, help='starting timestamp of video requested')
     arg_parser.add_argument('end', type=str, help='ending timestamp of video requested')
-    arg_parser.add_argument('config_file', type=str, help='filename for local config file')
-    arg_parser.add_argument('--output_name', type=str, help='desired filename')
+    arg_parser.add_argument('config_file', type=str, help='filepath of local config file')
+    arg_parser.add_argument('--output_name', type=str, help='desired filepath')
+    arg_parser.add_argument('--quality', type=str, help='desired video quality (low, medium, high)')
 
     args = arg_parser.parse_args()
     
-    if args.config_file is None:
-        print('Please include config file for Exacqman.py')
-        quit
-
-
-    config = ConfigParser()
-    config.read(args.config_file)
-
+    config = import_config(args.config_file)
 
     username = config['Auth']['user']
     password = config['Auth']['password']
     cameras = config['Cameras']
+    multiplier = int(config['Settings']['timelapse_multiplier'])
+    quality = config['Settings']['compression_level']
+
 
     session, camera_list = exapi.login(username, password)
-    video_filename = exapi.get_video(session, cameras.get(args.door_number), args.start, args.end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
+    extracted_video_name = exapi.get_video(session, cameras.get(args.door_number), args.start, args.end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
     exapi.logout(session)
 
-    extracted_video = video_filename
-    timelapsed_video_path = timelapse_video(extracted_video)
-    compress_video(timelapsed_video_path)
+    timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=multiplier)
+    compress_video(timelapsed_video_path, quality=quality)
 
 
 
