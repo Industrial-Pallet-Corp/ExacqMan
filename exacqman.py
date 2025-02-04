@@ -79,7 +79,7 @@ def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=
     success, frame = vid.read()
     height, width, layers = frame.shape #set the right resolution 
     print('Beginning timelapse')
-    writer = VideoWriter(timelapsed_video_path, VideoWriter_fourcc(*"MP4V"), fps, (width, height))
+    writer = VideoWriter(timelapsed_video_path, VideoWriter_fourcc(*"mp4v"), fps, (width, height))
     count = 0
 
     while success:
