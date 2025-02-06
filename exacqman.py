@@ -2,7 +2,8 @@
 from configparser import ConfigParser
 from moviepy import VideoFileClip
 from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, CAP_PROP_FPS
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import exacvision as exapi
 import argparse
 import sys
@@ -72,17 +73,16 @@ def validate_config(config):
 # converts timezones so that the API returns the correct footage
 def convert_EST_to_GMT(timestamp: str) -> str:
 
-    # Original datetime with 'Z' indicating UTC
-    est_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
-    est_datetime = est_datetime.replace(tzinfo=timezone.utc)
+    # Parse the input string and assign the timezone in one line
+    est_datetime = datetime.strptime('2025-04-16T16:20:22', '%Y-%m-%dT%H:%M:%S').replace(tzinfo=ZoneInfo('US/Eastern'))
 
-    # Add 5 hours
-    gmt_datetime = est_datetime + timedelta(hours=5)
+    # Convert to GMT timezone
+    gmt_datetime = est_datetime.astimezone(ZoneInfo('GMT'))
 
-    # Convert back to string with 'Z' at the end
-    gmt_timestamp = gmt_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
+    # Format the result to include 'Z' at the end
+    gmt_time = gmt_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    return gmt_timestamp
+    return gmt_time
 
 
 def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10):
