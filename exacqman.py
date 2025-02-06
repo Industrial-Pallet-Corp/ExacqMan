@@ -74,7 +74,7 @@ def validate_config(config):
 def convert_EST_to_GMT(timestamp: str) -> str:
 
     # Parse the input string and assign the timezone in one line
-    est_datetime = datetime.strptime('2025-04-16T16:20:22', '%Y-%m-%dT%H:%M:%S').replace(tzinfo=ZoneInfo('US/Eastern'))
+    est_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=ZoneInfo('US/Eastern'))
 
     # Convert to GMT timezone
     gmt_datetime = est_datetime.astimezone(ZoneInfo('GMT'))

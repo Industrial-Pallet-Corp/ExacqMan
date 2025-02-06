@@ -118,8 +118,8 @@ def export_request(session: str, camera_id: int, start: str, stop: str, name: st
         url = url+f'&name={name}'
 
     response = requests.request("GET", url)
-    export_id = json.loads(response.text)['export_id']
     # pprint(response.json())
+    export_id = json.loads(response.text)['export_id']
 
     return export_id
 
