@@ -2,9 +2,11 @@
 from configparser import ConfigParser
 from moviepy import VideoFileClip
 from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, CAP_PROP_FPS
+from datetime import datetime, timedelta, timezone
 import exacvision as exapi
 import argparse
 import sys
+
 
 
 def import_config(config_file):
@@ -65,6 +67,22 @@ def validate_config(config):
         return False
     else:
         return True
+
+
+# converts timezones so that the API returns the correct footage
+def convert_EST_to_GMT(timestamp: str) -> str:
+
+    # Original datetime with 'Z' indicating UTC
+    est_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
+    est_datetime = est_datetime.replace(tzinfo=timezone.utc)
+
+    # Add 5 hours
+    gmt_datetime = est_datetime + timedelta(hours=5)
+
+    # Convert back to string with 'Z' at the end
+    gmt_timestamp = gmt_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    return gmt_timestamp
 
 
 def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10):
@@ -176,9 +194,12 @@ def main():
         else:
             quality = config['Settings']['compression_level']
 
+        # Adjust times from EST to GMT
+        gmt_start = convert_EST_to_GMT(args.start)
+        gmt_end = convert_EST_to_GMT(args.end)
 
         session, camera_list = exapi.login(username, password)
-        extracted_video_name = exapi.get_video(session, cameras.get(args.door_number), args.start, args.end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
+        extracted_video_name = exapi.get_video(session, cameras.get(args.door_number), gmt_start, gmt_end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
         exapi.logout(session)
 
         timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=multiplier)
