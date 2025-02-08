@@ -21,25 +21,25 @@ Run as a stand-alone script:
 
 ### Usage:
 
-```shell
-  -h | --help       Display this help text
-  -v | --version    Display script version
-  default           Extract, timelapse, and compress a video file
-    -door_number    Door number of camera wanted
-    -start          Starting timestamp of video requested
-    -end            Ending timestamp of video requested
-    -config_file    Filepath of local config file
-    -o | --output_name  Desired filepath
-    --quality       Desired video quality (choices: low, medium, high)
-    --multiplier    Desired timelapse multiplier (must be a positive integer)
-  compress          Compress a video file
-    -video_filename Video file to compress
+```
+  -h | --help            Display this help text
+  -v | --version         Display script version
+  default                Extract, timelapse, and compress a video file
+    -door_number         Door number of camera wanted
+    -start               Starting timestamp of video requested
+    -end                 Ending timestamp of video requested
+    -config_file         Filepath of local config file
+    -o | --output_name   Desired filepath
+    --quality            Desired video quality (choices: low, medium, high)
+    --multiplier         Desired timelapse multiplier (must be a positive integer)
+  compress               Compress a video file
+    -video_filename      Video file to compress
     -compression_quality Desired compression quality (choices: low, medium, high)
-    -o | --output_name  Desired filepath
-  timelapse         Create a timelapse video
-    -video_filename Video file for timelapse
-    -multiplier     Desired timelapse multiplier (must be a positive integer)
-    -o | --output_name  Desired filepath
+    -o | --output_name   Desired filepath
+  timelapse              Create a timelapse video
+    -video_filename      Video file for timelapse
+    -multiplier          Desired timelapse multiplier (must be a positive integer)
+    -o | --output_name   Desired filepath
 ```
 
 ## Testing
