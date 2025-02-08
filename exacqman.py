@@ -122,14 +122,14 @@ def compress_video(original_video_path, compressed_video_path=None, quality = 'm
         compressed_video_path = f'_{codec}_{quality}.'.join(original_video_path.split('.'))
 
     if quality == 'low':
-        bitrate = "250K"
+        bitrate = '250K'
         resolution = (1280, 720)
     elif quality == 'medium':
-        bitrate = "500K"
+        bitrate = '500K'
         resolution = (1920, 1080)
     elif quality == 'high':
-        bitrate = "1M"
-        resolution = (3840, 2160)
+        bitrate = '1M'
+        resolution = (1920, 1080)
     else:
         print('please enter a valid compression quality')
         quit
@@ -137,18 +137,21 @@ def compress_video(original_video_path, compressed_video_path=None, quality = 'm
     video = VideoFileClip(original_video_path)
     print('Beginning Video compression.')
     video.write_videofile(compressed_video_path, bitrate=bitrate, codec=codec) #libx264 gave really good compression per runtime
+    # the snippet below changes resolution instead of bitrate
+    # video.resized(new_size=resolution).write_videofile(compressed_video_path, codec=codec)
     print('Video successfully compressed.')
 
     return compressed_video_path
 
 
+def create_arg_parser():
+    # TODO put all subparser stuff in here
+    pass
+
 def main():
     # TODO final main should take (door_number, start, end) as parameters, for now it just timelapses and compresses a video file
     arg_parser = argparse.ArgumentParser()
 
-    # Use default if no subcommand is provided
-    if len(sys.argv) > 1 and sys.argv[1] not in ['default', 'compress', 'timelapse']:
-        sys.argv.insert(1, 'default')
 
     subparsers = arg_parser.add_subparsers(dest='command')
 
@@ -173,6 +176,10 @@ def main():
     timelapse_parser.add_argument('video_filename', type=str, help='Video file for timelapse')
     timelapse_parser.add_argument('multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
     timelapse_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
+
+    if len(sys.argv) < 2 or sys.argv[1] not in ['default', 'timelapse', 'compress']:
+        arg_parser.print_help()
+        exit(1)
 
     args = arg_parser.parse_args()
 
