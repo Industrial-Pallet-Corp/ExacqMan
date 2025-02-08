@@ -12,10 +12,8 @@ Python-based footage extractor utilizing the ExacqVision Web API to extract vide
 
 ## Usage
 
-Run as a stand-alone script:
-
 1. Clone this repository, or download exacqman.py, exacvision.py, and default.config.
-2. Open default.config and fill in user and password fields. 
+2. Copy default.config and rename the copy to your liking. Fill in user and password fields. 
 3. Change variables in the [Settings] category as desired. (Note: 'timelapse_multiplier' must be a positive integer and 'compression_level' must be one of [low, medium, high])
 4. Run `python script_name.py --help` for usage info.
 
