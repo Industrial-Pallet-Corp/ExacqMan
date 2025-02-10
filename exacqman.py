@@ -144,14 +144,9 @@ def compress_video(original_video_path, compressed_video_path=None, quality = 'm
     return compressed_video_path
 
 
-def create_arg_parser():
-    # TODO put all subparser stuff in here
-    pass
+def parse_arguments():
 
-def main():
-    # TODO final main should take (door_number, start, end) as parameters, for now it just timelapses and compresses a video file
     arg_parser = argparse.ArgumentParser()
-
 
     subparsers = arg_parser.add_subparsers(dest='command')
 
@@ -177,11 +172,18 @@ def main():
     timelapse_parser.add_argument('multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
     timelapse_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
 
+    # Prints help text if the command doesn't begin with default, timelapse, or compress
     if len(sys.argv) < 2 or sys.argv[1] not in ['default', 'timelapse', 'compress']:
         arg_parser.print_help()
         exit(1)
 
-    args = arg_parser.parse_args()
+    return arg_parser.parse_args()
+
+
+
+def main():
+    
+    args = parse_arguments()
 
     if args.command == 'default':
     
