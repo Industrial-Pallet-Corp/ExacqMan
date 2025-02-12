@@ -55,7 +55,7 @@ def list_cameras(session):
     return cameras
 
 
-def create_search(session: str, camera_id: int, start: str, stop: str) -> str:
+def create_search(session: str, camera_id: int, start: str, stop: str) -> tuple[str, requests.Response]:
     """
     Creates a search request for video recordings.
 
@@ -66,13 +66,15 @@ def create_search(session: str, camera_id: int, start: str, stop: str) -> str:
         stop (str): The stop time of the search in RFC3339 UTC format.
 
     Returns:
-        str: The search ID of the created search.
+        tuple: A tuple containing:
+            - str: The search ID of the created search.
+            - requests.Response: The response object from the search request.
 
     Raises:
         requests.exceptions.RequestException: If the request fails.
 
     Example:
-        search_id = create_search(session='abcd1234', camera_id=1, start='2022-01-01T00:00:00Z', stop='2022-01-01T01:00:00Z')
+        search_id, response = create_search(session='abcd1234', camera_id=1, start='2022-01-01T00:00:00Z', stop='2022-01-01T01:00:00Z')
     """
 
     url = f"{base_url}/v1/search.web?s={session}&start={start}&end={stop}&camera={camera_id}&output=json"
@@ -89,7 +91,7 @@ def create_search(session: str, camera_id: int, start: str, stop: str) -> str:
 
     # pprint(response.json())
 
-    return search_id
+    return search_id, response
 
 
 def export_request(session: str, camera_id: int, start: str, stop: str, name: str=None) -> str:
