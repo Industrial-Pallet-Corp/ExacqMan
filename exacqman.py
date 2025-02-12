@@ -1,11 +1,12 @@
 
 from configparser import ConfigParser
 from moviepy import VideoFileClip
-from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, CAP_PROP_FPS
+from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, CAP_PROP_FPS, CAP_PROP_FRAME_COUNT
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import exacvision as exapi
 import argparse
+from tqdm import tqdm
 import sys
 
 
@@ -15,7 +16,7 @@ def import_config(config_file):
     config.read(config_file)
 
     if validate_config(config) == False:
-        quit
+        exit(1)
 
     return config
 
@@ -70,8 +71,8 @@ def validate_config(config):
         return True
 
 
-# converts timezones so that the API returns the correct footage
 def convert_EST_to_GMT(timestamp: str) -> str:
+    '''Converts timezones so that the API returns the correct footage.'''
 
     # Parse the input string and assign the timezone in one line
     est_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=ZoneInfo('US/Eastern'))
@@ -85,6 +86,12 @@ def convert_EST_to_GMT(timestamp: str) -> str:
     return gmt_time
 
 
+
+def get_timestamps():
+    pass
+
+
+
 def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10):
     '''timelapses a video by the multiplier (must be an integer)'''
 
@@ -95,7 +102,9 @@ def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=
     vid = VideoCapture(original_video_path)
     fps = vid.get(CAP_PROP_FPS)  # Get the original frames per second
     success, frame = vid.read()
-    height, width, layers = frame.shape #set the right resolution 
+    height, width, layers = frame.shape # Set the right resolution 
+    pbar = tqdm(total=vid.get(CAP_PROP_FRAME_COUNT)) # Initialize the progress bar
+
     print('Beginning timelapse')
     writer = VideoWriter(timelapsed_video_path, VideoWriter_fourcc(*"mp4v"), fps, (width, height))
     count = 0
@@ -106,6 +115,7 @@ def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=
             
         success, frame = vid.read()
         count += 1
+        pbar.update(1)
 
     writer.release()
     vid.release()
@@ -115,7 +125,11 @@ def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=
 
 
 def compress_video(original_video_path, compressed_video_path=None, quality = 'medium', codec = "libx264"):
-    '''Compresses video at a provided bitrate'''
+    '''Compresses mp4 video at a provided bitrate'''
+
+    # Ensure the input file has the correct extension
+    if not original_video_path.endswith('.mp4'):
+        original_video_path += '.mp4'
 
     # If not specified, rename the output file to the same as input with codec and bitrate appended to it (e.g. video_libx264_500K.mp4)
     if compressed_video_path is None:
@@ -132,13 +146,12 @@ def compress_video(original_video_path, compressed_video_path=None, quality = 'm
         resolution = (1920, 1080)
     else:
         print('please enter a valid compression quality')
-        quit
+        exit(1)
 
-    video = VideoFileClip(original_video_path)
+    video = VideoFileClip(original_video_path, target_resolution=resolution)
     print('Beginning Video compression.')
     video.write_videofile(compressed_video_path, bitrate=bitrate, codec=codec) #libx264 gave really good compression per runtime
-    # the snippet below changes resolution instead of bitrate
-    # video.resized(new_size=resolution).write_videofile(compressed_video_path, codec=codec)
+    
     print('Video successfully compressed.')
 
     return compressed_video_path
