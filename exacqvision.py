@@ -7,11 +7,9 @@ from zoneinfo import ZoneInfo
 
 
 class Exacqvision:
-
-    base_url = "http://10.20.4.12"
     
-    
-    def __init__(self, username, password, timezone):
+    def __init__(self, base_url:str, username: str, password: str, timezone: ZoneInfo):
+        self.base_url = base_url
         self.timezone = timezone
         self.session = self.login(username, password)
 
@@ -65,6 +63,36 @@ class Exacqvision:
         return cameras
 
 
+    def convert_local_to_GMT(self, timestamp: str) -> str:
+        '''Converts timezones so that the API returns the correct footage.'''
+
+        # Parse the input string and assign the timezone in one line
+        local_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=self.timezone)
+
+        # Convert to GMT timezone
+        gmt_datetime = local_datetime.astimezone(ZoneInfo('GMT'))
+
+        # Format the result to include 'Z' at the end
+        gmt_time = gmt_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        return gmt_time
+    
+
+    def convert_GMT_to_local(self, timestamp: str) -> str:
+        '''Converts timezones so that the API returns the correct timestamps.'''
+
+        # Parse the input string and assign the timezone in one line
+        gmt_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ').replace(ZoneInfo('GMT'))
+
+        # Convert to GMT timezone
+        local_datetime = gmt_datetime.astimezone(tzinfo=self.timezone)
+
+        # Format the result to include 'Z' at the end
+        local_time = local_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        return local_time
+
+
     def create_search(self, camera_id: int, start: str, stop: str) -> tuple[str, requests.Response]:
         """
         Creates a search request for video recordings.
@@ -86,6 +114,10 @@ class Exacqvision:
         Example:
             search_id, response = create_search(session='abcd1234', camera_id=1, start='2022-01-01T00:00:00Z', stop='2022-01-01T01:00:00Z')
         """
+
+        # Convert timestamps to GMT
+        start = self.convert_local_to_GMT(start)
+        stop = self.convert_local_to_GMT(stop)
 
         url = f"{self.base_url}/v1/search.web?s={self.session}&start={start}&end={stop}&camera={camera_id}&output=json"
         print(url)
@@ -124,6 +156,10 @@ class Exacqvision:
         Example:
             export_id = export_request(session='abcd1234', camera_id=1, start='2022-01-01T00:00:00Z', stop='2022-01-01T01:00:00Z', name='video_export')
         """
+
+        # Convert timestamps to GMT
+        start = self.convert_local_to_GMT(start)
+        stop = self.convert_local_to_GMT(stop)
 
         url = f"{self.base_url}/v1/export.web?camera={camera_id}&s={self.session}&start={start}&end={stop}&format=mp4"
         if name:
@@ -229,8 +265,10 @@ class Exacqvision:
 
         # Returns list of all seconds between two times
         def generate_time_range(start_time, stop_time, stepsize=1):
-            start_time = datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%SZ')
-            stop_time = datetime.strptime(stop_time, '%Y-%m-%dT%H:%M:%SZ')
+
+            # Change to local time and convert to datetime
+            start_time = datetime.strptime(self.convert_local_to_GMT(start_time), '%Y-%m-%dT%H:%M:%SZ')
+            stop_time = datetime.strptime(self.convert_local_to_GMT(stop_time), '%Y-%m-%dT%H:%M:%SZ')
 
             delta = timedelta(seconds=stepsize)
 

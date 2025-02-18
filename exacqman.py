@@ -38,6 +38,10 @@ def validate_config(config):
         errors.append('server_ip is missing or empty')
         fatal = True
 
+    if 'timezone' not in config['Settings'] or not config['Settings']['timezone'].strip():
+        errors.append('timezone is missing or empty')
+        fatal = True
+
     if 'timelapse_multiplier' not in config['Settings'] or not config['Settings']['timelapse_multiplier'].strip():
         errors.append('timelapse_multiplier is missing or empty. Program will default to 10')
     else:
@@ -69,21 +73,6 @@ def validate_config(config):
         return False
     else:
         return True
-
-
-def convert_EST_to_GMT(timestamp: str) -> str:
-    '''Converts timezones so that the API returns the correct footage.'''
-
-    # Parse the input string and assign the timezone in one line
-    est_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=ZoneInfo('US/Eastern'))
-
-    # Convert to GMT timezone
-    gmt_datetime = est_datetime.astimezone(ZoneInfo('GMT'))
-
-    # Format the result to include 'Z' at the end
-    gmt_time = gmt_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-    return gmt_time
 
 
 def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10):
@@ -198,6 +187,8 @@ def main():
         username = config['Auth']['user']
         password = config['Auth']['password']
         cameras = config['Cameras']
+        timezone = config['Settings']['timezone']
+        server_ip = config['Network']['server_ip']
 
         if args.multiplier:
             multiplier = args.multiplier
@@ -209,13 +200,11 @@ def main():
         else:
             quality = config['Settings']['compression_level']
 
-        # Adjust times from EST to GMT
-        gmt_start = convert_EST_to_GMT(args.start)
-        gmt_end = convert_EST_to_GMT(args.end)
+        timezone = ZoneInfo(timezone)
 
         # Instantiate api class and retrieve video
-        exapi = exacqvision.Exacqvision(username, password, timezone = 'EST')
-        extracted_video_name = exapi.get_video(cameras.get(args.door_number), gmt_start, gmt_end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
+        exapi = exacqvision.Exacqvision(server_ip, username, password, timezone)
+        extracted_video_name = exapi.get_video(cameras.get(args.door_number), args.start, args.end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
         exapi.logout()
 
         # Process video after extraction
