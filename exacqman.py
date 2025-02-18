@@ -164,15 +164,15 @@ def parse_arguments():
 
     subparsers = arg_parser.add_subparsers(dest='command')
 
-    # Default mode subcommand
-    default_parser = subparsers.add_parser('default', help='Extract, timelapse, and compress a video file')
-    default_parser.add_argument('door_number', type=str, help='Door number of camera wanted')
-    default_parser.add_argument('start', type=str, help='Starting timestamp of video requested')
-    default_parser.add_argument('end', type=str, help='Ending timestamp of video requested')
-    default_parser.add_argument('config_file', type=str, help='Filepath of local config file')
-    default_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
-    default_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
-    default_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
+    # Extract mode subcommand
+    extract_parser = subparsers.add_parser('extract', help='Extract, timelapse, and compress a video file')
+    extract_parser.add_argument('[door_number]', type=str, help='Door number of camera wanted')
+    extract_parser.add_argument('start', type=str, help='Starting timestamp of video requested')
+    extract_parser.add_argument('end', type=str, help='Ending timestamp of video requested')
+    extract_parser.add_argument('config_file', type=str, help='Filepath of local config file')
+    extract_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
+    extract_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
+    extract_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
 
     # Compress subcommand
     compress_parser = subparsers.add_parser('compress', help='Compress a video file')
@@ -187,7 +187,7 @@ def parse_arguments():
     timelapse_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
 
     # Prints help text if the command doesn't begin with default, timelapse, or compress
-    if len(sys.argv) < 2 or sys.argv[1] not in ['default', 'timelapse', 'compress']:
+    if len(sys.argv) < 2 or sys.argv[1] not in ['extract', 'timelapse', 'compress']:
         arg_parser.print_help()
         exit(1)
 
@@ -198,7 +198,7 @@ def main():
     
     args = parse_arguments()
 
-    if args.command == 'default':
+    if args.command == 'extract':
     
         config = import_config(args.config_file)
 
