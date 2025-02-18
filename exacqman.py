@@ -86,12 +86,6 @@ def convert_EST_to_GMT(timestamp: str) -> str:
     return gmt_time
 
 
-
-def get_timestamps():
-    pass
-
-
-
 def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10):
     '''timelapses a video by the multiplier (must be an integer)'''
 
@@ -193,7 +187,6 @@ def parse_arguments():
     return arg_parser.parse_args()
 
 
-
 def main():
     
     args = parse_arguments()
@@ -238,9 +231,15 @@ def main():
 
 
 if __name__ == "__main__":
-    # if len(sys.argv) != 4:
-    #     print("Program usage requires parameters (Example: exacqman.py 8 2025-01-15T14:50:21Z 2025-01-15T15:50:21Z)")
-    # main(sys.argv[1], sys.argv[2], sys.argv[3]) # reads the arguments from the command line interface
-    # TODO add error checking to ensure format of CLI command is correct
+    
     main()
+
+    # config = import_config('mydefault.config')
+
+    # username = config['Auth']['user']
+    # password = config['Auth']['password']
+    # cameras = config['Cameras']
+
+    # session, cameras = exapi.login(username, password)
+    # print(exapi.get_timestamps(session, cameras[0], '2025-02-06T18:29:30Z', '2025-02-06T18:30:00Z'))
 
