@@ -4,7 +4,7 @@ from moviepy import VideoFileClip
 from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, CAP_PROP_FPS, CAP_PROP_FRAME_COUNT
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import exacvision as exapi
+import exacqvision
 import argparse
 from tqdm import tqdm
 import sys
@@ -213,10 +213,12 @@ def main():
         gmt_start = convert_EST_to_GMT(args.start)
         gmt_end = convert_EST_to_GMT(args.end)
 
-        session, camera_list = exapi.login(username, password)
-        extracted_video_name = exapi.get_video(session, cameras.get(args.door_number), gmt_start, gmt_end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
-        exapi.logout(session)
+        # Instantiate api class and retrieve video
+        exapi = exacqvision.Exacqvision(username, password, timezone = 'EST')
+        extracted_video_name = exapi.get_video(cameras.get(args.door_number), gmt_start, gmt_end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
+        exapi.logout()
 
+        # Process video after extraction
         timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=multiplier)
         compress_video(timelapsed_video_path, quality=quality)
 
