@@ -63,6 +63,21 @@ class Exacqvision:
         return cameras
 
 
+    def convert_GMT_to_local(self, timestamp: str) -> str:
+        '''Converts timezones so that the API returns the correct timestamps.'''
+
+        # Parse the input string and assign the timezone in one line
+        gmt_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=ZoneInfo('GMT'))
+
+        # Convert to GMT timezone
+        local_datetime = gmt_datetime.astimezone(self.timezone)
+
+        # Format the result to include 'Z' at the end
+        local_time = local_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        return local_time
+
+
     def convert_local_to_GMT(self, timestamp: str) -> str:
         '''Converts timezones so that the API returns the correct footage.'''
 
@@ -77,21 +92,6 @@ class Exacqvision:
 
         return gmt_time
     
-
-    def convert_GMT_to_local(self, timestamp: str) -> str:
-        '''Converts timezones so that the API returns the correct timestamps.'''
-
-        # Parse the input string and assign the timezone in one line
-        gmt_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ').replace(ZoneInfo('GMT'))
-
-        # Convert to GMT timezone
-        local_datetime = gmt_datetime.astimezone(tzinfo=self.timezone)
-
-        # Format the result to include 'Z' at the end
-        local_time = local_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-        return local_time
-
 
     def create_search(self, camera_id: int, start: str, stop: str) -> tuple[str, requests.Response]:
         """
@@ -267,8 +267,8 @@ class Exacqvision:
         def generate_time_range(start_time, stop_time, stepsize=1):
 
             # Change to local time and convert to datetime
-            start_time = datetime.strptime(self.convert_local_to_GMT(start_time), '%Y-%m-%dT%H:%M:%SZ')
-            stop_time = datetime.strptime(self.convert_local_to_GMT(stop_time), '%Y-%m-%dT%H:%M:%SZ')
+            start_time = datetime.strptime(self.convert_GMT_to_local(start_time), '%Y-%m-%dT%H:%M:%SZ')
+            stop_time = datetime.strptime(self.convert_GMT_to_local(stop_time), '%Y-%m-%dT%H:%M:%SZ')
 
             delta = timedelta(seconds=stepsize)
 

@@ -1,7 +1,7 @@
 
 from configparser import ConfigParser
 from moviepy import VideoFileClip
-from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, CAP_PROP_FPS, CAP_PROP_FRAME_COUNT
+from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, putText, CAP_PROP_FPS, CAP_PROP_FRAME_COUNT, CAP_PROP_POS_FRAMES, FONT_HERSHEY_SIMPLEX, LINE_AA
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import exacqvision
@@ -75,7 +75,7 @@ def validate_config(config):
         return True
 
 
-def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10):
+def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10, timestamps = None):
     '''timelapses a video by the multiplier (must be an integer)'''
 
     # If not specified, rename the output file to the same as input with speed appended to it (e.g. video_4x.mp4)
@@ -83,21 +83,39 @@ def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=
         timelapsed_video_path=f'_{multiplier}x.'.join(original_video_path.split('.'))
 
     vid = VideoCapture(original_video_path)
+
+    if not vid.isOpened():
+        print("Error: Could not open video file.")
+        exit()
+
     fps = vid.get(CAP_PROP_FPS)  # Get the original frames per second
     success, frame = vid.read()
-    height, width, layers = frame.shape # Set the right resolution 
-    pbar = tqdm(total=vid.get(CAP_PROP_FRAME_COUNT)) # Initialize the progress bar
+    height, width, layers = frame.shape # Set the right resolution
+    total_frames = vid.get(CAP_PROP_FRAME_COUNT)
+    if timestamps:
+        number_of_timestamps = len(timestamps)
+    pbar = tqdm(total=total_frames) # Initialize the progress bar
 
     print('Beginning timelapse')
     writer = VideoWriter(timelapsed_video_path, VideoWriter_fourcc(*"mp4v"), fps, (width, height))
     count = 0
 
     while success:
+        
+        if timestamps:
+            frame_position = vid.get(CAP_PROP_POS_FRAMES)
+            current_timestamp = timestamps[int(frame_position/total_frames*(number_of_timestamps-1))]
+            timestamp_string = current_timestamp.strftime('%Y-%m-%d %H:%M:%S')
+
+            # Add the timestamp to the bottom left of the video
+            putText(frame, timestamp_string, (10, height - 10), FONT_HERSHEY_SIMPLEX, 5.0, (0,255,0), 3, LINE_AA)
+
         if count % multiplier == 0:  
             writer.write(frame)
             
         success, frame = vid.read()
         count += 1
+
         pbar.update(1)
 
     writer.release()
@@ -205,10 +223,11 @@ def main():
         # Instantiate api class and retrieve video
         exapi = exacqvision.Exacqvision(server_ip, username, password, timezone)
         extracted_video_name = exapi.get_video(cameras.get(args.door_number), args.start, args.end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
+        video_timestamps = exapi.get_timestamps(cameras.get(args.door_number), args.start, args.end)
         exapi.logout()
 
         # Process video after extraction
-        timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=multiplier)
+        timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=multiplier, timestamps = video_timestamps)
         compress_video(timelapsed_video_path, quality=quality)
 
     if args.command == 'compress':
@@ -220,7 +239,6 @@ def main():
         timelapse_video(args.video_filename, args.output_name, multiplier=args.multiplier)
 
 
-
 if __name__ == "__main__":
     
     main()
@@ -230,7 +248,9 @@ if __name__ == "__main__":
     # username = config['Auth']['user']
     # password = config['Auth']['password']
     # cameras = config['Cameras']
+    # timezone = config['Settings']['timezone']
+    # server_ip = config['Network']['server_ip']
 
-    # session, cameras = exapi.login(username, password)
-    # print(exapi.get_timestamps(session, cameras[0], '2025-02-06T18:29:30Z', '2025-02-06T18:30:00Z'))
+    # exapi = exacqvision.Exacqvision(server_ip, username, password, ZoneInfo(timezone))
+    # print(exapi.get_timestamps('3483648', '2025-02-06T18:29:30Z', '2025-02-06T18:30:00Z'))
 
