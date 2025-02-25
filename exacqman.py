@@ -1,10 +1,9 @@
-
 from configparser import ConfigParser
 from moviepy import VideoFileClip
 from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, putText, CAP_PROP_FPS, CAP_PROP_FRAME_COUNT, CAP_PROP_POS_FRAMES, FONT_HERSHEY_SIMPLEX, LINE_AA
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import exacqvision
+from exacqvision import Exacqvision
 import argparse
 from tqdm import tqdm
 import sys
@@ -221,7 +220,7 @@ def main():
         timezone = ZoneInfo(timezone)
 
         # Instantiate api class and retrieve video
-        exapi = exacqvision.Exacqvision(server_ip, username, password, timezone)
+        exapi = Exacqvision(server_ip, username, password, timezone)
         extracted_video_name = exapi.get_video(cameras.get(args.door_number), args.start, args.end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
         video_timestamps = exapi.get_timestamps(cameras.get(args.door_number), args.start, args.end)
         exapi.logout()

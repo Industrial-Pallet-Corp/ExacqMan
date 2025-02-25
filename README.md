@@ -1,5 +1,7 @@
 # ExacqMan
-Python-based footage extractor utilizing the ExacqVision Web API to extract video footage from specified cameras and apply timelapse or compression techniques based on user input. 
+Python-based footage extractor utilizing the ExacqVision Web API to extract video footage from specified cameras and apply timelapse or compression techniques based on user input.
+
+For api testing, check out the Postman collection : https://weareipc.postman.co/workspace/Industrial-Pallet-Corp~f0dc5379-c365-405e-8a29-ee8050839c42/collection/38801065-56761369-c40d-4cb1-9ab1-3f0a7efb59c9?action=share&creator=38801065&active-environment=7096363-3d41cab2-1adc-47b2-8041-ef8c9b87eb00
 
 ## Requirements
 
@@ -22,7 +24,7 @@ Python-based footage extractor utilizing the ExacqVision Web API to extract vide
 ```
   -h | --help            Display this help text
   -v | --version         Display script version
-  default                Extract, timelapse, and compress a video file
+  extract                Extract, timelapse, and compress a video file
     -door_number         Door number of camera wanted
     -start               Starting timestamp of video requested
     -end                 Ending timestamp of video requested
@@ -43,12 +45,12 @@ Python-based footage extractor utilizing the ExacqVision Web API to extract vide
 ## Testing
 
 1. Ensure the configuration file is properly set up.
-2. Run the script in the desired mode (default, compress, or timelapse) with appropriate arguments.
+2. Run the script in the desired mode (extract, compress, or timelapse) with appropriate arguments.
 3. Observe the generated video files for the applied timelapse or compression effects.
 
 ### Example commands:
 
-- Default mode: `python script_name.py default <door_number> <start> <end> <config_file> --output_name <output_name> --quality <quality> --multiplier <multiplier>`
+- Extract mode: `python script_name.py extract <door_number> <start> <end> <config_file> --output_name <output_name> --quality <quality> --multiplier <multiplier>`
 - Compress mode: `python script_name.py compress <video_filename> <compression_quality> --output_name <output_name>`
 - Timelapse mode: `python script_name.py timelapse <video_filename> <multiplier> --output_name <output_name>`
 
