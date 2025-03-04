@@ -77,6 +77,9 @@ def validate_config(config):
 def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10, timestamps = None):
     '''timelapses a video by the multiplier (must be an integer)'''
 
+    if not original_video_path.endswith('.mp4'):
+        original_video_path = original_video_path + '.mp4'
+
     # If not specified, rename the output file to the same as input with speed appended to it (e.g. video_4x.mp4)
     if timelapsed_video_path is None:
         timelapsed_video_path=f'_{multiplier}x.'.join(original_video_path.split('.'))
@@ -93,9 +96,9 @@ def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=
     total_frames = vid.get(CAP_PROP_FRAME_COUNT)
     if timestamps:
         number_of_timestamps = len(timestamps)
-    pbar = tqdm(total=total_frames) # Initialize the progress bar
 
-    print('Beginning timelapse')
+    print('Beginning timelapse.')
+    pbar = tqdm(total=total_frames, leave=False) # Initialize the progress bar
     writer = VideoWriter(timelapsed_video_path, VideoWriter_fourcc(*"mp4v"), fps, (width, height))
     count = 0
 
@@ -117,10 +120,12 @@ def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=
 
         pbar.update(1)
 
+    pbar.close()
     writer.release()
     vid.release()
     
     print('Video successfully timelapsed.')
+
     return timelapsed_video_path
 
 
@@ -169,6 +174,7 @@ def parse_arguments():
         end_time = config['Runtime']['end_time']
         filename = config['Runtime']['filename']
     else:
+        config = None
         door_number = None
         start_time = None
         end_time = None

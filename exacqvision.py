@@ -120,14 +120,12 @@ class Exacqvision:
         stop = self.convert_local_to_GMT(stop)
 
         url = f"{self.base_url}/v1/search.web?s={self.session}&start={start}&end={stop}&camera={camera_id}&output=json"
-        print(url)
+        # print(url)
 
         response = requests.request("GET", url)
         
-        if response.status_code == 200: 
-            print('Request succeeded') 
-        else: 
-            print(f'Request failed with status code: {response.status_code}')
+        if response.status_code != 200: 
+            print(f'Search request failed with status code: {response.status_code}')
 
         search_id = json.loads(response.text)['search_id']
 
@@ -165,9 +163,11 @@ class Exacqvision:
         if name:
             url = url+f'&name={name}'
 
+        print('Creating export request.')
         response = requests.request("GET", url)
         # pprint(response.json())
         export_id = json.loads(response.text)['export_id']
+        print(f'Export request created. Export ID is {export_id}')
 
         return export_id
 
@@ -205,6 +205,7 @@ class Exacqvision:
             unit='iB',
             unit_scale=True,
             unit_divisor=1024,
+            leave=False
             # file=sys.stdout,  # Ensure progress bar prints to standard output
             # ncols=80,  # Adjust the width of the progress bar
         ) as bar:
