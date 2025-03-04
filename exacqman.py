@@ -161,8 +161,19 @@ def parse_arguments():
 
     config_file = next((arg for arg in sys.argv if arg.endswith(".config")), None)
 
+
     if config_file:
         config = import_config(config_file)
+        door_number = config['Runtime']['door_number']
+        start_time = config['Runtime']['start_time']
+        end_time = config['Runtime']['end_time']
+        filename = config['Runtime']['filename']
+    else:
+        door_number = None
+        start_time = None
+        end_time = None
+        filename = None
+
 
     arg_parser = argparse.ArgumentParser()
 
@@ -170,11 +181,11 @@ def parse_arguments():
 
     # Extract mode subcommand
     extract_parser = subparsers.add_parser('extract', help='Extract, timelapse, and compress a video file')
-    extract_parser.add_argument('door_number', nargs='?', default=config['Runtime']['door_number'], type=str, help='Door number of camera wanted')
-    extract_parser.add_argument('start', nargs='?', default=config['Runtime']['start_time'], type=str, help='Starting timestamp of video requested (e.g. 2025-01-16T14:00:00Z)')
-    extract_parser.add_argument('end', nargs='?', default=config['Runtime']['end_time'], type=str, help='Ending timestamp of video requested (e.g. 2025-01-16T15:00:00Z)')
+    extract_parser.add_argument('door_number', nargs='?', default=door_number, type=str, help='Door number of camera wanted (must be an integer)')
+    extract_parser.add_argument('start', nargs='?', default=start_time, type=str, help='Starting timestamp of video requested (e.g. 2025-01-16T14:00:00Z)')
+    extract_parser.add_argument('end', nargs='?', default=end_time, type=str, help='Ending timestamp of video requested (e.g. 2025-01-16T15:00:00Z)')
     extract_parser.add_argument('config_file', type=str, help='Filepath of local config file')
-    extract_parser.add_argument('-o', '--output_name', default=config['Runtime']['filename'], type=str, help='Desired filepath')
+    extract_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
     extract_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
     extract_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
 
