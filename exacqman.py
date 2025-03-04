@@ -159,17 +159,22 @@ def compress_video(original_video_path, compressed_video_path=None, quality = 'm
 
 def parse_arguments():
 
+    config_file = next((arg for arg in sys.argv if arg.endswith(".config")), None)
+
+    if config_file:
+        config = import_config(config_file)
+
     arg_parser = argparse.ArgumentParser()
 
     subparsers = arg_parser.add_subparsers(dest='command')
 
     # Extract mode subcommand
     extract_parser = subparsers.add_parser('extract', help='Extract, timelapse, and compress a video file')
-    extract_parser.add_argument('[door_number]', type=str, help='Door number of camera wanted')
-    extract_parser.add_argument('start', type=str, help='Starting timestamp of video requested')
-    extract_parser.add_argument('end', type=str, help='Ending timestamp of video requested')
+    extract_parser.add_argument('door_number', nargs='?', default=config['Runtime']['door_number'], type=str, help='Door number of camera wanted')
+    extract_parser.add_argument('start', nargs='?', default=config['Runtime']['start_time'], type=str, help='Starting timestamp of video requested (e.g. 2025-01-16T14:00:00Z)')
+    extract_parser.add_argument('end', nargs='?', default=config['Runtime']['end_time'], type=str, help='Ending timestamp of video requested (e.g. 2025-01-16T15:00:00Z)')
     extract_parser.add_argument('config_file', type=str, help='Filepath of local config file')
-    extract_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
+    extract_parser.add_argument('-o', '--output_name', default=config['Runtime']['filename'], type=str, help='Desired filepath')
     extract_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
     extract_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
 
@@ -190,17 +195,15 @@ def parse_arguments():
         arg_parser.print_help()
         exit(1)
 
-    return arg_parser.parse_args()
+    return arg_parser.parse_args(), config
 
 
 def main():
     
-    args = parse_arguments()
+    args, config = parse_arguments()
 
     if args.command == 'extract':
     
-        config = import_config(args.config_file)
-
         username = config['Auth']['user']
         password = config['Auth']['password']
         cameras = config['Cameras']
