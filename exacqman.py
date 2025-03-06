@@ -10,7 +10,7 @@ import sys
 
 
 
-def import_config(config_file):
+def import_config(config_file: str) -> ConfigParser:
     config = ConfigParser()
     config.read(config_file)
 
@@ -20,7 +20,8 @@ def import_config(config_file):
     return config
 
 
-def validate_config(config):
+def validate_config(config: ConfigParser) -> bool:
+    ''' Checks config file for errors and returns a bool indicating if it finds anything missing from the config file that would cause a crash.'''
 
     errors = []
     fatal = False
@@ -74,9 +75,27 @@ def validate_config(config):
         return True
 
 
-def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=10, timestamps = None):
-    '''timelapses a video by the multiplier (must be an integer)'''
+def timelapse_video(original_video_path: str, timelapsed_video_path: str = None, multiplier: int = 10, timestamps: list[str] = None) -> str:
+    """
+    Creates a timelapse video from the original video file by applying the specified multiplier.
 
+    If timestamps are provided, they are added to the video.
+
+    Args:
+        original_video_path (str):                  The filepath of the original video.
+        timelapsed_video_path (str, optional):      The filepath for the output timelapsed video. 
+        multiplier (int, optional):                 The timelapse multiplier (must be a positive integer). Default is 10.
+        timestamps (list of datetime, optional):    A list of timestamps to be added to the video. 
+                                                    If provided, each frame's timestamp will be added to the video.
+
+    Returns:
+        str: The filepath of the processed timelapsed video.
+
+    Raises:
+        SystemExit: If the original video file cannot be opened.
+    """
+
+    # Ensure the input file has the correct extension
     if not original_video_path.endswith('.mp4'):
         original_video_path = original_video_path + '.mp4'
 
@@ -129,8 +148,24 @@ def timelapse_video(original_video_path, timelapsed_video_path=None, multiplier=
     return timelapsed_video_path
 
 
-def compress_video(original_video_path, compressed_video_path=None, quality = 'medium', codec = "libx264"):
-    '''Compresses mp4 video at a provided bitrate'''
+def compress_video(original_video_path: str, compressed_video_path: str = None, quality: str = 'medium', codec: str = "libx264") -> str:
+    """
+    Compresses a video file to a specified quality and codec.
+
+    Args:
+        original_video_path (str): The file path of the original video.
+        compressed_video_path (str, optional): The desired file path for the compressed video. Defaults to None.
+        quality (str): The quality level for the compressed video ('low', 'medium', 'high'). Defaults to 'medium'.
+        codec (str): The codec to use for compression. Defaults to 'libx264'.
+
+    Returns:
+        str: The file path of the compressed video.
+
+    Raises:
+        ValueError: If the quality is not 'low', 'medium', or 'high'.
+    """
+    if quality not in ['low', 'medium', 'high']:
+        raise ValueError("Quality must be 'low', 'medium', or 'high'")
 
     # Ensure the input file has the correct extension
     if not original_video_path.endswith('.mp4'):
@@ -163,10 +198,22 @@ def compress_video(original_video_path, compressed_video_path=None, quality = 'm
 
 
 def parse_arguments():
+    """
+    Parses command-line arguments and configuration file for video processing tasks.
 
-    config_file = next((arg for arg in sys.argv if arg.endswith(".config")), None)
+    This function identifies and processes configuration files provided in the command-line arguments.
+    It initializes the argument parser, sets up subcommands, and defines specific arguments for the 'extract',
+    'compress', and 'timelapse' commands. If an invalid command is detected, it displays the help text and exits.
+
+    Returns:
+        tuple: Contains parsed command-line arguments and configuration settings.
+
+    """
 
 
+    config_file = next((arg for arg in sys.argv if arg.endswith(".config")), None) # Returns the first argument that contains the substring '.config'
+
+    # This if/else is necessary to keep the extract subparser from crashing when trying to set defaults.
     if config_file:
         config = import_config(config_file)
         door_number = config['Runtime']['door_number']
@@ -216,6 +263,30 @@ def parse_arguments():
 
 
 def main():
+    """
+    Main entry point of the script.
+    This function handles various video processing tasks including extraction, compression, 
+    and timelapse creation based on the command-line arguments provided.
+
+    Workflow:
+    - Parses command-line arguments and configuration settings.
+    - If the command is 'extract', retrieves video from the server, processes it with a timelapse effect, and compresses it.
+    - If the command is 'compress', compresses an existing video file.
+    - If the command is 'timelapse', applies a timelapse effect to an existing video file.
+
+    Arguments:
+    None (parses command-line arguments internally).
+
+    Configuration:
+    - Auth: Authentication credentials including user and password.
+    - Cameras: Camera IDs using door number as key.
+    - Settings: Timezone, timelapse multiplier, and compression level.
+    - Network: Server IP address.
+    - Runtime: Door number, filename, start_time, and end_time.
+
+    Returns:
+    None
+    """
     
     args, config = parse_arguments()
 

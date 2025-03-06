@@ -24,7 +24,6 @@ class Exacqvision:
 
         Returns:
             session_id (str): session_id to authorize other API calls.
-            cameras (int[]): A list of camera IDs available to the user.
 
         Note that session_id is required for many other API calls.
         """
@@ -192,7 +191,7 @@ class Exacqvision:
 
         url = f"{self.base_url}/v1/export.web?export={export_id}&action=download"
 
-        response = requests.get(url, stream=True)
+        response = requests.get(url, stream=True) # Setting stream to true is necessary to keep the progress bar updating while downloading the file.
 
         file_name = response.headers.get('Content-Disposition').split('filename=')[-1].strip('"')
 
@@ -206,14 +205,12 @@ class Exacqvision:
             unit_scale=True,
             unit_divisor=1024,
             leave=False
-            # file=sys.stdout,  # Ensure progress bar prints to standard output
             # ncols=80,  # Adjust the width of the progress bar
         ) as bar:
             # Iterate over the response data in chunks and update the progress bar
             for data in response.iter_content(chunk_size=1024):
                 size = file.write(data)
                 bar.update(size)
-                # sys.stdout.flush()  # Force flush standard output
 
         print(f"Video saved successfully as {file_name}!")
 
@@ -230,9 +227,19 @@ class Exacqvision:
 
 
     def get_video(self, camera: int, start: str, stop: str, video_filename: str):
-        ''' 
-        TODO add error checking for different fail states (export status stuck at 0)
-        '''
+        """
+        Initiates an export request for video footage from a specified camera between given start and stop times,
+        and downloads the exported video once the request is successful. Cleans up the export request afterwards.
+
+        Args:
+            camera (int): The ID of the camera to export video from.
+            start (str): The start time for the video export in ISO 8601 format (e.g., '2025-03-06T08:00:00Z').
+            stop (str): The stop time for the video export in ISO 8601 format (e.g., '2025-03-06T08:10:00Z').
+            video_filename (str): The desired name for the exported video file.
+
+        Returns:
+            Optional(str): The file path to the downloaded video if successful, otherwise None.
+        """
 
         export_id = self.export_request(camera, start, stop, name = video_filename)
 
@@ -246,10 +253,10 @@ class Exacqvision:
         if count < 10:
             filename = self.export_download(export_id)
         else:
-            print('Export failed. Deleting request')
-
+            print('Export failed. Deleting request.')
+        
         sleep(2)  # Give time after downloading before attempting delete
-        self.export_delete(export_id)
+        self.export_delete(export_id) # Clean up request whether exporting succeeds or fails.
         
         if filename:
             return filename
@@ -295,5 +302,4 @@ class Exacqvision:
         finished_timestamps = [x for x in unique_timestamps if x>=start and x<=stop]
 
         return finished_timestamps
-        
     
