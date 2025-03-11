@@ -1,7 +1,7 @@
 # ExacqMan
 Python-based footage extractor utilizing the ExacqVision Web API to extract video footage from specified cameras and apply timelapse or compression techniques based on user input.
 
-For api testing, check out the Postman collection : https://weareipc.postman.co/workspace/Industrial-Pallet-Corp~f0dc5379-c365-405e-8a29-ee8050839c42/collection/38801065-56761369-c40d-4cb1-9ab1-3f0a7efb59c9?action=share&creator=38801065&active-environment=7096363-3d41cab2-1adc-47b2-8041-ef8c9b87eb00
+For API testing, [check out the Postman collection](https://weareipc.postman.co/workspace/Industrial-Pallet-Corp~f0dc5379-c365-405e-8a29-ee8050839c42/collection/38801065-56761369-c40d-4cb1-9ab1-3f0a7efb59c9?action=share&creator=38801065&active-environment=7096363-3d41cab2-1adc-47b2-8041-ef8c9b87eb00)
 
 For generating timestamps, check out this site : https://dencode.com/date?v=&tz=Etc%2FGreenwich
   - use the ISO8601 Date (Extend)
