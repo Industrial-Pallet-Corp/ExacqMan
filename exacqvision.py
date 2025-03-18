@@ -14,7 +14,7 @@ class Exacqvision:
         self.session = self.login(username, password)
 
 
-    def login(self, username: str, password: str) -> tuple[str, list[int]]:
+    def login(self, username: str, password: str) -> str:
         """
         Logs user into Exacqvision's API.
 
@@ -62,45 +62,44 @@ class Exacqvision:
         return cameras
 
 
-    def convert_GMT_to_local(self, timestamp: str) -> str:
-        '''Converts timezones so that the API returns the correct timestamps.'''
+    def convert_GMT_to_local(self, time: datetime) -> datetime:
+        '''Converts timezones to datetimes in the local timezone.'''
 
         # Parse the input string and assign the timezone in one line
-        gmt_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=ZoneInfo('GMT'))
+        gmt_datetime = time.replace(tzinfo=ZoneInfo('GMT'))
 
         # Convert to GMT timezone
         local_datetime = gmt_datetime.astimezone(self.timezone)
 
-        # Format the result to include 'Z' at the end
-        local_time = local_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-        return local_time
+        return local_datetime
 
 
-    def convert_local_to_GMT(self, timestamp: str) -> str:
-        '''Converts timezones so that the API returns the correct footage.'''
+    def convert_local_to_GMT(self, time: datetime) -> datetime:
+        '''Converts timezones to datetimes in GMT timezone.'''
 
         # Parse the input string and assign the timezone in one line
-        local_datetime = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=self.timezone)
+        local_datetime = time.replace(tzinfo=self.timezone)
 
         # Convert to GMT timezone
         gmt_datetime = local_datetime.astimezone(ZoneInfo('GMT'))
 
-        # Format the result to include 'Z' at the end
-        gmt_time = gmt_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-        return gmt_time
+        return gmt_datetime
     
 
-    def create_search(self, camera_id: int, start: str, stop: str) -> tuple[str, requests.Response]:
+    def convert_datetime_to_iso8601(self, timezone: ZoneInfo, *datetimes: datetime) -> tuple[str]:
+        '''Adds timezone data to datetimes, then converts to timestamps in ISO8601 format'''
+        return tuple(dt.replace(tzinfo=timezone).isoformat() for dt in datetimes)
+    
+
+    def create_search(self, camera_id: int, start: datetime, stop: datetime) -> tuple[str, requests.Response]:
         """
         Creates a search request for video recordings.
 
         Args:
             session (str): The session ID for authentication.
             camera_id (int): The ID of the camera to search.
-            start (str): The start time of the search in RFC3339 UTC format.
-            stop (str): The stop time of the search in RFC3339 UTC format.
+            start (datetime): The start time of the search as a datetime object.
+            stop (datetime): The stop time of the search as a datetime object.
 
         Returns:
             tuple: A tuple containing:
@@ -109,14 +108,10 @@ class Exacqvision:
 
         Raises:
             requests.exceptions.RequestException: If the request fails.
-
-        Example:
-            search_id, response = create_search(session='abcd1234', camera_id=1, start='2022-01-01T00:00:00Z', stop='2022-01-01T01:00:00Z')
         """
 
-        # Convert timestamps to GMT
-        start = self.convert_local_to_GMT(start)
-        stop = self.convert_local_to_GMT(stop)
+        # Convert datetimes into timestamps
+        start, stop = self.convert_datetime_to_iso8601(self.timezone, start, stop)
 
         url = f"{self.base_url}/v1/search.web?s={self.session}&start={start}&end={stop}&camera={camera_id}&output=json"
         # print(url)
@@ -133,15 +128,15 @@ class Exacqvision:
         return search_id, response
 
 
-    def export_request(self, camera_id: int, start: str, stop: str, name: str=None) -> str:
+    def export_request(self, camera_id: int, start: datetime, stop: datetime, name: str=None) -> str:
         """
         Initiates an export request for video recordings.
 
         Args:
             session (str): The session ID for authentication.
             camera_id (int): The ID of the camera to export video from.
-            start (str): The start time of the export in ISO 8601 format.
-            stop (str): The end time of the export in ISO 8601 format.
+            start (datetime): The start time of the search as a datetime object.
+            stop (datetime): The stop time of the search as a datetime object.
             name (str, optional): The name of the exported file. Defaults to None.
 
         Returns:
@@ -149,14 +144,10 @@ class Exacqvision:
 
         Raises:
             requests.exceptions.RequestException: If the request fails.
-
-        Example:
-            export_id = export_request(session='abcd1234', camera_id=1, start='2022-01-01T00:00:00Z', stop='2022-01-01T01:00:00Z', name='video_export')
         """
 
-        # Convert timestamps to GMT
-        start = self.convert_local_to_GMT(start)
-        stop = self.convert_local_to_GMT(stop)
+        # Convert datetimes into timestamps
+        start, stop = self.convert_datetime_to_iso8601(self.timezone, start, stop)
 
         url = f"{self.base_url}/v1/export.web?camera={camera_id}&s={self.session}&start={start}&end={stop}&format=mp4"
         if name:
@@ -226,15 +217,15 @@ class Exacqvision:
         return(response.text)
 
 
-    def get_video(self, camera: int, start: str, stop: str, video_filename: str):
+    def get_video(self, camera: int, start: datetime, stop: datetime, video_filename: str):
         """
         Initiates an export request for video footage from a specified camera between given start and stop times,
         and downloads the exported video once the request is successful. Cleans up the export request afterwards.
 
         Args:
             camera (int): The ID of the camera to export video from.
-            start (str): The start time for the video export in ISO 8601 format (e.g., '2025-03-06T08:00:00Z').
-            stop (str): The stop time for the video export in ISO 8601 format (e.g., '2025-03-06T08:10:00Z').
+            start (datetime): The start time of the search as a datetime object.
+            stop (datetime): The stop time of the search as a datetime object.
             video_filename (str): The desired name for the exported video file.
 
         Returns:
@@ -264,7 +255,7 @@ class Exacqvision:
             return None
         
         
-    def get_timestamps(self, camera_id: int, start: str, stop: str) -> list[datetime]:
+    def get_timestamps(self, camera_id: int, start: datetime, stop: datetime) -> list[datetime]:
         '''Extracts timestamps from create_search and converts them into a list of datetime objects, each representing one second of the video.'''
         
         search_id, response = self.create_search(camera_id, start, stop)
@@ -274,16 +265,16 @@ class Exacqvision:
         # Returns list of all seconds between two times
         def generate_time_range(start_time, stop_time, stepsize=1):
 
-            # Change to local time and convert to datetime
-            start_time = datetime.strptime(self.convert_GMT_to_local(start_time), '%Y-%m-%dT%H:%M:%SZ')
-            stop_time = datetime.strptime(self.convert_GMT_to_local(stop_time), '%Y-%m-%dT%H:%M:%SZ')
+            # Change to datetime object and then convert to local timezone
+            start_datetime = self.convert_GMT_to_local(datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%SZ'))
+            stop_datetime = self.convert_GMT_to_local(datetime.strptime(stop_time, '%Y-%m-%dT%H:%M:%SZ'))
 
             delta = timedelta(seconds=stepsize)
 
             times = []
-            while start_time <= stop_time:
-                times.append(start_time)
-                start_time += delta
+            while start_datetime <= stop_datetime:
+                times.append(start_datetime)
+                start_datetime += delta
 
             return times
 
@@ -296,9 +287,11 @@ class Exacqvision:
         # Filter out timestamp duplicates while maintaining their order.
         unique_timestamps = list(dict.fromkeys(flattened_timestamps))
         
+        # Add timezone info to start and stop datetimes to prevent crashing due to them being offset-naive
+        start = start.replace(tzinfo=self.timezone)
+        stop =  stop.replace(tzinfo=self.timezone)
+
         # Remove timestamps outside of the original start and stop times.
-        start = datetime.strptime(start, '%Y-%m-%dT%H:%M:%SZ')
-        stop = datetime.strptime(stop, '%Y-%m-%dT%H:%M:%SZ')
         finished_timestamps = [x for x in unique_timestamps if x>=start and x<=stop]
 
         return finished_timestamps

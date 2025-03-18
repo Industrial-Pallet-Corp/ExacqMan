@@ -240,9 +240,9 @@ def parse_arguments():
     # Extract mode subcommand
     extract_parser = subparsers.add_parser('extract', help='Extract, timelapse, and compress a video file')
     extract_parser.add_argument('door_number', nargs='?', default=door_number, type=str, help='Door number of camera wanted (must be an integer)')
-    extract_parser.add_argument('date', nargs='?', default=date, type=str, help='Date of the requested video. If the footage spans past midnight, provide the date on which the footage starts.')
-    extract_parser.add_argument('start', nargs='?', default=start_time, type=str, help='Starting timestamp of video requested (e.g. 2025-01-16T14:00:00Z)')
-    extract_parser.add_argument('end', nargs='?', default=end_time, type=str, help='Ending timestamp of video requested (e.g. 2025-01-16T15:00:00Z)')
+    extract_parser.add_argument('date', nargs='?', default=date, type=str, help='Date of the requested video. If the footage spans past midnight, provide the date on which the footage starts. (e.g. 3/11)')
+    extract_parser.add_argument('start', nargs='?', default=start_time, type=str, help='Starting timestamp of video requested (e.g. 11am)')
+    extract_parser.add_argument('end', nargs='?', default=end_time, type=str, help='Ending timestamp of video requested (e.g. 5pm)')
     extract_parser.add_argument('config_file', type=str, help='Filepath of local config file')
     extract_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
     extract_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
@@ -268,8 +268,8 @@ def parse_arguments():
     return arg_parser.parse_args(), config
 
 
-def convert_input_to_timestamps(date:str, start:str, end:str) -> tuple[str, str]:
-    '''Takes simple tokens for date and time and returns UTC strings for start and end times.'''
+def convert_input_to_datetime(date:str, start:str, end:str) -> tuple[datetime, datetime]:
+    '''Takes simple tokens for date and time and returns start and end as datetimes.'''
     
     start_datetime = duparse(f'{date} {start}')
     end_datetime = duparse(f'{date} {end}')
@@ -283,10 +283,7 @@ def convert_input_to_timestamps(date:str, start:str, end:str) -> tuple[str, str]
     if end_datetime < start_datetime :
         end_datetime = end_datetime + timedelta(days=1)
 
-    start_utc = start_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
-    end_utc = end_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-    return start_utc, end_utc
+    return start_datetime, end_datetime
 
 
 def main():
@@ -309,7 +306,7 @@ def main():
     - Cameras: Camera IDs using door number as key.
     - Settings: Timezone, timelapse multiplier, and compression level.
     - Network: Server IP address.
-    - Runtime: Door number, filename, start_time, and end_time.
+    - Runtime: Door number, filename, date, start_time, and end_time.
 
     Returns:
     None
@@ -325,7 +322,7 @@ def main():
         timezone = config['Settings']['timezone']
         server_ip = config['Network']['server_ip']
 
-        start, end = convert_input_to_timestamps(args.date, args.start, args.end)
+        start, end = convert_input_to_datetime(args.date, args.start, args.end)
 
         if args.multiplier:
             multiplier = args.multiplier
@@ -341,7 +338,7 @@ def main():
 
         # Instantiate api class and retrieve video
         exapi = Exacqvision(server_ip, username, password, timezone)
-        extracted_video_name = exapi.get_video(cameras.get(args.door_number), start, end, video_filename=args.output_name) #'2025-01-16T14:50:21Z', '2025-01-16T15:35:21Z')
+        extracted_video_name = exapi.get_video(cameras.get(args.door_number), start, end, video_filename=args.output_name)
         video_timestamps = exapi.get_timestamps(cameras.get(args.door_number), start, end)
         exapi.logout()
 
@@ -361,15 +358,3 @@ def main():
 if __name__ == "__main__":
     
     main()
-
-    # config = import_config('mydefault.config')
-
-    # username = config['Auth']['user']
-    # password = config['Auth']['password']
-    # cameras = config['Cameras']
-    # timezone = config['Settings']['timezone']
-    # server_ip = config['Network']['server_ip']
-
-    # exapi = exacqvision.Exacqvision(server_ip, username, password, ZoneInfo(timezone))
-    # print(exapi.get_timestamps('3483648', '2025-02-06T18:29:30Z', '2025-02-06T18:30:00Z'))
-
