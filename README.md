@@ -50,8 +50,8 @@ For API testing, [check out the Postman collection](https://weareipc.postman.co/
 1. Ensure the configuration file is properly set up.
 2. Run the script in the desired mode (extract, compress, or timelapse) with appropriate arguments.
 3. When entering the date, it should be of the form mm/dd or mm/dd/yyyy.
-4. When entering the start or end time, it should be of the form hh:mm:ssAM|PM (no spaces)
-4. Observe the generated video files for the applied timelapse or compression effects.
+4. When entering the start or end time, it should be of the form hh:mm:ssAM|PM (no spaces), or a simplified version.
+5. Observe the generated video files for the applied timelapse or compression effects.
 
 ### Example commands:
 
