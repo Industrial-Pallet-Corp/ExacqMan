@@ -28,6 +28,22 @@ def validate_config(config: ConfigParser) -> bool:
     errors = []
     fatal = False
 
+    # Check Sections first
+
+    sections = ['Auth', 'Network', 'Cameras', 'Settings']
+
+    for section in sections:
+        if not config.has_section(section):
+            errors.append(f'[{section}] section is missing from config')
+            fatal = True
+    
+    if errors:
+        print(f"{'\n'.join(errors)}")
+    
+    if fatal:
+        return False # False because config is not valid
+
+    # Validate entries individually
     if 'user' not in config['Auth'] or not config['Auth']['user'].strip():
         errors.append('user is missing or empty')
         fatal = True
@@ -45,7 +61,7 @@ def validate_config(config: ConfigParser) -> bool:
         fatal = True
 
     if 'timelapse_multiplier' not in config['Settings'] or not config['Settings']['timelapse_multiplier'].strip():
-        errors.append('timelapse_multiplier is missing or empty. Program will default to 10')
+        errors.append('timelapse_multiplier is missing or empty. Program will default to 10') # Default is set by the timelapse_video function
     else:
         try:
             int(config['Settings']['timelapse_multiplier'])
@@ -54,7 +70,7 @@ def validate_config(config: ConfigParser) -> bool:
             fatal = True
 
     if 'compression_level' not in config['Settings'] or not config['Settings']['compression_level'].strip():
-        errors.append('compression_level is missing or empty. Program will default to medium')
+        errors.append('compression_level is missing or empty. Program will default to medium') # Default is set by the compress_video function
 
     for camera_number, camera_value in config['Cameras'].items():
             if not camera_value.strip():
@@ -77,7 +93,7 @@ def validate_config(config: ConfigParser) -> bool:
         return True
 
 
-def timelapse_video(original_video_path: str, timelapsed_video_path: str = None, multiplier: int = 10, timestamps: list[str] = None) -> str:
+def timelapse_video(original_video_path: str, timelapsed_video_path: str = None, multiplier: int = 10, timestamps: list[datetime] = None) -> str:
     """
     Creates a timelapse video from the original video file by applying the specified multiplier.
 
@@ -100,6 +116,11 @@ def timelapse_video(original_video_path: str, timelapsed_video_path: str = None,
     # Ensure the input file has the correct extension
     if not original_video_path.endswith('.mp4'):
         original_video_path = original_video_path + '.mp4'
+
+    # Ensure multiplier is an integer greater than 0 or default to 10
+
+    if multiplier <= 0 or not isinstance(multiplier, int):
+        raise TypeError("Timelapse multiplier must be a positive integer.")
 
     # If not specified, rename the output file to the same as input with speed appended to it (e.g. video_4x.mp4)
     if timelapsed_video_path is None:
@@ -188,8 +209,7 @@ def compress_video(original_video_path: str, compressed_video_path: str = None, 
         bitrate = '1M'
         resolution = (1920, 1080)
     else:
-        print('please enter a valid compression quality')
-        exit(1)
+        raise ValueError("Compression quality must be one of: 'low', 'medium', 'high'")
 
     video = VideoFileClip(original_video_path, target_resolution=resolution)
     print('Beginning Video compression.')
