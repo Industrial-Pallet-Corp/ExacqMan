@@ -188,9 +188,6 @@ def compress_video(original_video_path: str, compressed_video_path: str = None, 
         ValueError: If the quality is not 'low', 'medium', or 'high'.
     """
 
-    if quality not in ['low', 'medium', 'high']:
-        raise ValueError("Quality must be 'low', 'medium', or 'high'")
-
     # Ensure the input file has the correct extension
     if not original_video_path.endswith('.mp4'):
         original_video_path += '.mp4'
@@ -211,9 +208,10 @@ def compress_video(original_video_path: str, compressed_video_path: str = None, 
     else:
         raise ValueError("Compression quality must be one of: 'low', 'medium', 'high'")
 
-    video = VideoFileClip(original_video_path, target_resolution=resolution)
     print('Beginning Video compression.')
-    video.write_videofile(compressed_video_path, bitrate=bitrate, codec=codec) #libx264 gave really good compression per runtime
+
+    with VideoFileClip(original_video_path, target_resolution=resolution) as video:
+        video.write_videofile(compressed_video_path, bitrate=bitrate, codec=codec) #libx264 gave really good compression per runtime
     
     print('Video successfully compressed.')
 
@@ -244,6 +242,8 @@ def parse_arguments():
         start_time = config['Runtime']['start_time']
         end_time = config['Runtime']['end_time']
         filename = config['Runtime']['filename']
+        quality = config['Settings']['compression_level']
+        timelapse_multiplier = int(config['Settings']['timelapse_multiplier'])
     else:
         config = None
         door_number = None
@@ -251,6 +251,8 @@ def parse_arguments():
         start_time = None
         end_time = None
         filename = None
+        quality = None
+        timelapse_multiplier = None
 
 
     arg_parser = argparse.ArgumentParser()
@@ -265,25 +267,20 @@ def parse_arguments():
     extract_parser.add_argument('end', nargs='?', default=end_time, type=str, help='Ending timestamp of video requested (e.g. 5pm)')
     extract_parser.add_argument('config_file', type=str, help='Filepath of local config file')
     extract_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
-    extract_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
-    extract_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
+    extract_parser.add_argument('--quality', type=str, default=quality, choices=['low', 'medium', 'high'], help='Desired video quality')
+    extract_parser.add_argument('--multiplier', type=int, default=timelapse_multiplier, help='Desired timelapse multiplier (must be a positive integer)')
 
     # Compress subcommand
     compress_parser = subparsers.add_parser('compress', help='Compress a video file')
     compress_parser.add_argument('video_filename', type=str, help='Video file to compress')
-    compress_parser.add_argument('compression_quality', type=str, choices=['low', 'medium', 'high'], help='Desired compression quality')
-    compress_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
+    compress_parser.add_argument('compression_quality', default=quality, type=str, choices=['low', 'medium', 'high'], help='Desired compression quality')
+    compress_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
 
     # Timelapse subcommand
     timelapse_parser = subparsers.add_parser('timelapse', help='Create a timelapse video')
     timelapse_parser.add_argument('video_filename', type=str, help='Video file for timelapse')
-    timelapse_parser.add_argument('multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
-    timelapse_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
-
-    # Prints help text if the command doesn't begin with default, timelapse, or compress
-    if len(sys.argv) < 2 or sys.argv[1] not in ['extract', 'timelapse', 'compress']:
-        arg_parser.print_help()
-        exit(1)
+    timelapse_parser.add_argument('multiplier', type=int, default=timelapse_multiplier, help='Desired timelapse multiplier (must be a positive integer)')
+    timelapse_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
 
     return arg_parser.parse_args(), config
 
@@ -334,6 +331,10 @@ def main():
     
     args, config = parse_arguments()
 
+    if args.command is None:
+        args.print_help()
+        exit(1)
+
     if args.command == 'extract':
     
         username = config['Auth']['user']
@@ -344,16 +345,6 @@ def main():
 
         start, end = convert_input_to_datetime(args.date, args.start, args.end)
 
-        if args.multiplier:
-            multiplier = args.multiplier
-        else:
-            multiplier = int(config['Settings']['timelapse_multiplier'])
-
-        if args.quality:
-            quality = args.quality
-        else:
-            quality = config['Settings']['compression_level']
-
         timezone = ZoneInfo(timezone)
 
         # Instantiate api class and retrieve video
@@ -363,14 +354,14 @@ def main():
         exapi.logout()
 
         # Process video after extraction
-        timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=multiplier, timestamps = video_timestamps)
-        compress_video(timelapsed_video_path, quality=quality)
+        timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=args.multiplier, timestamps = video_timestamps)
+        compress_video(timelapsed_video_path, quality=args.quality)
 
-    if args.command == 'compress':
+    elif args.command == 'compress':
 
         compress_video(args.video_filename, args.output_name, quality=args.compression_quality)
 
-    if args.command == 'timelapse':
+    elif args.command == 'timelapse':
 
         timelapse_video(args.video_filename, args.output_name, multiplier=args.multiplier)
 
