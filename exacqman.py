@@ -1,6 +1,6 @@
 from configparser import ConfigParser
 from moviepy import VideoFileClip
-from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, putText, CAP_PROP_FPS, CAP_PROP_FRAME_COUNT, CAP_PROP_POS_FRAMES, FONT_HERSHEY_SIMPLEX, LINE_AA
+from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, putText, getTextSize, CAP_PROP_FPS, CAP_PROP_FRAME_COUNT, CAP_PROP_POS_FRAMES, FONT_HERSHEY_SIMPLEX, LINE_AA
 from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse as duparse
@@ -93,6 +93,34 @@ def validate_config(config: ConfigParser) -> bool:
         return True
 
 
+def calculate_font_scale(video_width: int, font_thickness: int) -> float:
+    # Static timestamp to calculate scale
+    timestamp_string = datetime(2025, 3, 28, 6, 43, 20).strftime('%Y-%m-%d %H:%M:%S')
+
+    # Calculate available width for the text (80% of the video width)
+    max_text_width = int(video_width * 0.8)
+
+    # Dynamically determine font scale based on text width
+    text_size = getTextSize(timestamp_string, FONT_HERSHEY_SIMPLEX, 1, font_thickness)[0]
+    text_width, text_height = text_size
+
+    font_scale = max_text_width / text_width
+    
+    return font_scale
+
+
+def calculate_xy_text_position(video_height, video_width, timestamp_string: str, font_scale: float, thickness: int) -> tuple[int]:
+    # Recalculate text size with the dynamic font scale
+    text_size = getTextSize(timestamp_string, FONT_HERSHEY_SIMPLEX, font_scale, thickness)[0]
+    text_width, text_height = text_size
+
+    # Calculate position: centered horizontally, with 10% margin at the bottom
+    x_position = (video_width - text_width) // 2  # Center horizontally
+    y_position = int(video_height - (video_height * 0.1))  # 10% margin from the bottom
+
+    return x_position, y_position
+
+
 def timelapse_video(original_video_path: str, timelapsed_video_path: str = None, multiplier: int = 10, timestamps: list[datetime] = None) -> str:
     """
     Creates a timelapse video from the original video file by applying the specified multiplier.
@@ -139,6 +167,9 @@ def timelapse_video(original_video_path: str, timelapsed_video_path: str = None,
     if timestamps:
         number_of_timestamps = len(timestamps)
 
+    thickness = 2 # Set font thickness
+    font_scale = calculate_font_scale(width, thickness)
+
     print('Beginning timelapse.')
     pbar = tqdm(total=total_frames, leave=False) # Initialize the progress bar
     writer = VideoWriter(timelapsed_video_path, VideoWriter_fourcc(*"mp4v"), fps, (width, height))
@@ -148,11 +179,14 @@ def timelapse_video(original_video_path: str, timelapsed_video_path: str = None,
         
         if timestamps:
             frame_position = vid.get(CAP_PROP_POS_FRAMES)
-            current_timestamp = timestamps[int(frame_position/total_frames*(number_of_timestamps-1))]
+            current_timestamp = timestamps[int(frame_position / total_frames * (number_of_timestamps - 1))]
             timestamp_string = current_timestamp.strftime('%Y-%m-%d %H:%M:%S')
 
-            # Add the timestamp to the bottom left of the video
-            putText(frame, timestamp_string, (10, height - 10), FONT_HERSHEY_SIMPLEX, 5.0, (0,255,0), 3, LINE_AA)
+            x,y = calculate_xy_text_position(height, width, timestamp_string, font_scale, thickness)
+
+            # Add the timestamp to the centered bottom position
+            putText(frame, timestamp_string, (x, y), FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness, LINE_AA)
+
 
         if count % multiplier == 0:  
             writer.write(frame)
@@ -282,6 +316,11 @@ def parse_arguments():
     timelapse_parser.add_argument('multiplier', type=int, default=timelapse_multiplier, help='Desired timelapse multiplier (must be a positive integer)')
     timelapse_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
 
+    # Prints help text if the command doesn't begin with default, timelapse, or compress
+    if len(sys.argv) < 2 or sys.argv[1] not in ['extract', 'timelapse', 'compress']:
+        arg_parser.print_help()
+        exit(1)
+
     return arg_parser.parse_args(), config
 
 
@@ -330,10 +369,6 @@ def main():
     """
     
     args, config = parse_arguments()
-
-    if args.command is None:
-        args.print_help()
-        exit(1)
 
     if args.command == 'extract':
     
