@@ -1,15 +1,15 @@
 from configparser import ConfigParser
 from moviepy import VideoFileClip
-from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, putText, getTextSize, CAP_PROP_FPS, CAP_PROP_FRAME_COUNT, CAP_PROP_POS_FRAMES, FONT_HERSHEY_SIMPLEX, LINE_AA
 from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse as duparse
 from zoneinfo import ZoneInfo
 from exacqvision import Exacqvision
-import argparse
 from tqdm import tqdm
+from ast import literal_eval
+import cv2
+import argparse
 import sys
-
 
 
 def import_config(config_file: str) -> ConfigParser:
@@ -72,6 +72,20 @@ def validate_config(config: ConfigParser) -> bool:
     if 'compression_level' not in config['Settings'] or not config['Settings']['compression_level'].strip():
         errors.append('compression_level is missing or empty. Program will default to medium') # Default is set by the compress_video function
 
+    crop_dimensions = config['Settings'].get('crop_dimensions', '').strip()
+    if crop_dimensions:
+        
+        try:
+            crop_dimensions = literal_eval(crop_dimensions)
+            # Check if all values are integers
+            if not all(isinstance(coord, int) for point in crop_dimensions for coord in point):
+                errors.append('crop_dimensions should contain integers only')
+        except ValueError:
+            errors.append('crop_dimensions should follow the format: ((x, y), (width, height))')
+                
+
+
+        
     for camera_number, camera_value in config['Cameras'].items():
             if not camera_value.strip():
                 errors.append(f'Camera {camera_number} has no id')
@@ -93,35 +107,7 @@ def validate_config(config: ConfigParser) -> bool:
         return True
 
 
-def calculate_font_scale(video_width: int, font_thickness: int) -> float:
-    # Static timestamp to calculate scale
-    timestamp_string = datetime(2025, 3, 28, 6, 43, 20).strftime('%Y-%m-%d %H:%M:%S')
-
-    # Calculate available width for the text (80% of the video width)
-    max_text_width = int(video_width * 0.8)
-
-    # Dynamically determine font scale based on text width
-    text_size = getTextSize(timestamp_string, FONT_HERSHEY_SIMPLEX, 1, font_thickness)[0]
-    text_width, text_height = text_size
-
-    font_scale = max_text_width / text_width
-    
-    return font_scale
-
-
-def calculate_xy_text_position(video_height, video_width, timestamp_string: str, font_scale: float, thickness: int) -> tuple[int]:
-    # Recalculate text size with the dynamic font scale
-    text_size = getTextSize(timestamp_string, FONT_HERSHEY_SIMPLEX, font_scale, thickness)[0]
-    text_width, text_height = text_size
-
-    # Calculate position: centered horizontally, with 10% margin at the bottom
-    x_position = (video_width - text_width) // 2  # Center horizontally
-    y_position = int(video_height - (video_height * 0.1))  # 10% margin from the bottom
-
-    return x_position, y_position
-
-
-def timelapse_video(original_video_path: str, timelapsed_video_path: str = None, multiplier: int = 10, timestamps: list[datetime] = None) -> str:
+def process_video(original_video_path: str, output_video_path: str = None, multiplier: int = 10, timestamps: list[datetime] = None, crop: bool = False, crop_dimensions = None) -> str:
     """
     Creates a timelapse video from the original video file by applying the specified multiplier.
 
@@ -129,83 +115,182 @@ def timelapse_video(original_video_path: str, timelapsed_video_path: str = None,
 
     Args:
         original_video_path (str):                  The filepath of the original video.
-        timelapsed_video_path (str, optional):      The filepath for the output timelapsed video. 
+        output_video_path (str, optional):          The filepath for the output video. 
         multiplier (int, optional):                 The timelapse multiplier (must be a positive integer). Default is 10.
         timestamps (list of datetime, optional):    A list of timestamps to be added to the video. 
                                                     If provided, each frame's timestamp will be added to the video.
 
     Returns:
-        str: The filepath of the processed timelapsed video.
+        str: The filepath of the processed video.
 
     Raises:
         SystemExit: If the original video file cannot be opened.
     """
+
+    def fit_to_screen(frame, window_name):
+        """Resize a frame to fit within the screen dimensions."""
+        screen_width, screen_height = cv2.getWindowImageRect(window_name)[2:]
+        original_height, original_width = frame.shape[:2]
+
+        # Determine scaling factor to fit frame within screen dimensions
+        scale_width = screen_width / original_width
+        scale_height = screen_height / original_height
+        scale = min(scale_width, scale_height)  # Use the smaller scale factor
+
+        resized_width = int(original_width * scale)
+        resized_height = int(original_height * scale)
+        resized_frame = cv2.resize(frame, (resized_width, resized_height))
+
+        return resized_frame, scale
+
+
+    def select_crop(frame) -> tuple[tuple[int,int], tuple[int,int]]:
+        # Create a window to get screen dimensions
+        window_name = "Select ROI"
+        
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_name, 960, 540)  # Temporary window size
+
+        # Resize frame to fit screen dimensions
+        resized_frame, scale = fit_to_screen(frame, window_name)
+
+        instructions = "Drag to select ROI, then press Enter."
+
+        # Replace 'first_frame' with frame with instructions
+        frame_with_text = resized_frame.copy()
+        text_size = cv2.getTextSize(instructions, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)[0]
+        text_x = (frame_with_text.shape[1] - text_size[0]) // 2
+        text_y = 30  # Position at the top of the frame
+        cv2.putText(frame_with_text, instructions, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+
+        # Show the resized frame and allow ROI selection
+        roi = cv2.selectROI(window_name, frame_with_text, showCrosshair=True, fromCenter=False)
+        cv2.destroyAllWindows()  # Close the ROI selection window
+
+        # Scale ROI coordinates back to original resolution
+        x, y, w, h = map(int, roi)
+        x = int(x / scale)
+        y = int(y / scale)
+        w = int(w / scale)
+        h = int(h / scale)
+
+        coords = ((x,y),(w,h))
+        print(f'Crop coord: {coords}')
+        return coords
+
+
+    def calculate_font_scale(video_width: int, font_thickness: int) -> float:
+        # Static timestamp to calculate scale
+        timestamp_string = datetime(2025, 3, 28, 6, 43, 20).strftime('%Y-%m-%d %H:%M:%S')
+
+        # Calculate available width for the text (80% of the video width)
+        max_text_width = int(video_width * 0.8)
+
+        # Dynamically determine font scale based on text width
+        text_size = cv2.getTextSize(timestamp_string, cv2.FONT_HERSHEY_SIMPLEX, 1, font_thickness)[0]
+        text_width, text_height = text_size
+
+        font_scale = max_text_width / text_width
+        
+        return font_scale
+
+
+    def calculate_xy_text_position(video_height: int, video_width: int, timestamp_string: str, font_scale: float, thickness: int) -> tuple[int]:
+        # Recalculate text size with the dynamic font scale
+        text_size = cv2.getTextSize(timestamp_string, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)[0]
+        text_width, text_height = text_size
+
+        # Calculate position: centered horizontally, with 10% margin at the bottom
+        x_position = (video_width - text_width) // 2  # Center horizontally
+        y_position = int(video_height - (video_height * 0.1))  # 10% margin from the bottom
+
+        return x_position, y_position
+
 
     # Ensure the input file has the correct extension
     if not original_video_path.endswith('.mp4'):
         original_video_path = original_video_path + '.mp4'
 
     # Ensure multiplier is an integer greater than 0 or default to 10
-
     if multiplier <= 0 or not isinstance(multiplier, int):
         raise TypeError("Timelapse multiplier must be a positive integer.")
 
     # If not specified, rename the output file to the same as input with speed appended to it (e.g. video_4x.mp4)
-    if timelapsed_video_path is None:
-        timelapsed_video_path=f'_{multiplier}x.'.join(original_video_path.split('.'))
+    if output_video_path is None:
+        output_video_path=f'_{multiplier}x.'.join(original_video_path.split('.'))
 
-    vid = VideoCapture(original_video_path)
-
+    vid = cv2.VideoCapture(original_video_path)
     if not vid.isOpened():
         print("Error: Could not open video file.")
         exit()
 
-    fps = vid.get(CAP_PROP_FPS)  # Get the original frames per second
+    fps = vid.get(cv2.CAP_PROP_FPS)
     success, frame = vid.read()
-    height, width, layers = frame.shape # Set the right resolution
-    total_frames = vid.get(CAP_PROP_FRAME_COUNT)
+    height, width = frame.shape[:2]
+
+    # Handle cropping setup
+    if crop:
+        if crop_dimensions is None:
+            crop_dimensions = select_crop(frame)
+
+        (x, y), (crop_width, crop_height) = crop_dimensions
+        
+        # Validate crop dimensions
+        if x + crop_width > width or y + crop_height > height:
+            print(f"Warning: Crop dimensions ({x}, {y}, {crop_width}, {crop_height}) exceed frame size ({width}, {height})")
+            # Adjust crop dimensions to fit within frame
+            crop_width = min(crop_width, width - x)
+            crop_height = min(crop_height, height - y)
+            print(f"Adjusted to: ({x}, {y}, {crop_width}, {crop_height})")
+    else:
+        crop_width, crop_height = width, height
+        x, y = 0, 0
+
+    total_frames = vid.get(cv2.CAP_PROP_FRAME_COUNT)
     if timestamps:
         number_of_timestamps = len(timestamps)
 
-    thickness = 2 # Set font thickness
-    font_scale = calculate_font_scale(width, thickness)
+    thickness = 2
+    font_scale = calculate_font_scale(crop_width, thickness)  # Use crop_width instead of width
 
-    print('Beginning timelapse.')
-    pbar = tqdm(total=total_frames, leave=False) # Initialize the progress bar
-    writer = VideoWriter(timelapsed_video_path, VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    print('Processing Video.')
+    pbar = tqdm(total=total_frames, leave=False)
+    # Use crop dimensions for output video
+    writer = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (crop_width, crop_height))
     count = 0
 
     while success:
-        
+        if crop:
+            # Ensure crop stays within bounds
+            finished_frame = frame[y:y+crop_height, x:x+crop_width]
+            if finished_frame.shape[:2] != (crop_height, crop_width):
+                print(f"Warning: Cropped frame size {finished_frame.shape[:2]} doesn't match expected ({crop_height}, {crop_width})")
+        else:
+            finished_frame = frame
+
         if timestamps:
-            frame_position = vid.get(CAP_PROP_POS_FRAMES)
+            frame_position = vid.get(cv2.CAP_PROP_POS_FRAMES)
             current_timestamp = timestamps[int(frame_position / total_frames * (number_of_timestamps - 1))]
             timestamp_string = current_timestamp.strftime('%Y-%m-%d %H:%M:%S')
+            x_pos, y_pos = calculate_xy_text_position(crop_height, crop_width, timestamp_string, font_scale, thickness)
+            cv2.putText(finished_frame, timestamp_string, (x_pos, y_pos), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
 
-            x,y = calculate_xy_text_position(height, width, timestamp_string, font_scale, thickness)
+        if count % multiplier == 0:
+            writer.write(finished_frame)
 
-            # Add the timestamp to the centered bottom position
-            putText(frame, timestamp_string, (x, y), FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness, LINE_AA)
-
-
-        if count % multiplier == 0:  
-            writer.write(frame)
-            
         success, frame = vid.read()
         count += 1
-
         pbar.update(1)
 
     pbar.close()
     writer.release()
     vid.release()
     
-    print('Video successfully timelapsed.')
+    print('Video successfully processed.')
+    return output_video_path, crop_dimensions
 
-    return timelapsed_video_path
 
-
-def compress_video(original_video_path: str, compressed_video_path: str = None, quality: str = 'medium', codec: str = "libx264") -> str:
+def compress_video(original_video_path: str, compressed_video_path: str = None, quality: str = 'medium', crop: bool = False, custom_resolution: tuple[int,int] = None, codec: str = "libx264") -> str:
     """
     Compresses a video file to a specified quality and codec.
 
@@ -241,6 +326,9 @@ def compress_video(original_video_path: str, compressed_video_path: str = None, 
         resolution = (1920, 1080)
     else:
         raise ValueError("Compression quality must be one of: 'low', 'medium', 'high'")
+
+    if crop:
+        resolution = custom_resolution
 
     print('Beginning Video compression.')
 
@@ -303,6 +391,7 @@ def parse_arguments():
     extract_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
     extract_parser.add_argument('--quality', type=str, default=quality, choices=['low', 'medium', 'high'], help='Desired video quality')
     extract_parser.add_argument('--multiplier', type=int, default=timelapse_multiplier, help='Desired timelapse multiplier (must be a positive integer)')
+    extract_parser.add_argument('-c', '--crop', action='store_true', help='Crop the video. Set by config file or query user.')
 
     # Compress subcommand
     compress_parser = subparsers.add_parser('compress', help='Compress a video file')
@@ -389,16 +478,21 @@ def main():
         exapi.logout()
 
         # Process video after extraction
-        timelapsed_video_path = timelapse_video(extracted_video_name, multiplier=args.multiplier, timestamps = video_timestamps)
-        compress_video(timelapsed_video_path, quality=args.quality)
+        try:
+            crop_dimensions=literal_eval(config['Settings']['crop_dimensions'])
+            # print(crop_dimensions)
+        except:
+            crop_dimensions=None
+
+        processed_video_path,crop_dimensions = process_video(extracted_video_name, multiplier=args.multiplier, timestamps=video_timestamps, crop=args.crop, crop_dimensions=crop_dimensions)
+        compress_video(processed_video_path, quality=args.quality, crop=args.crop, custom_resolution=crop_dimensions[1])
 
     elif args.command == 'compress':
-
-        compress_video(args.video_filename, args.output_name, quality=args.compression_quality)
+        compress_video(args.video_filename, args.output_name, quality=args.compression_quality, crop=args.crop, custom_resolution=crop_dimensions[1])
 
     elif args.command == 'timelapse':
 
-        timelapse_video(args.video_filename, args.output_name, multiplier=args.multiplier)
+        process_video(args.video_filename, args.output_name, multiplier=args.multiplier)
 
 
 if __name__ == "__main__":
