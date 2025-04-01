@@ -17,7 +17,7 @@ For API testing, [check out the Postman collection](https://weareipc.postman.co/
 
 1. Clone this repository, or download exacqman.py, exacvision.py, and default.config.
 2. Copy default.config and rename the copy to your liking. Fill in user and password fields. 
-3. Change variables in the [Settings] category as desired. (Note: 'timelapse_multiplier' must be a positive integer and 'compression_level' must be one of [low, medium, high])
+3. Change variables in the [Settings] category as desired. (Note: 'timelapse_multiplier' and 'thickness must be positive integers and 'compression_level' must be one of [low, medium, high]). 'crop_dimensions' should be left blank, the user can select the region during runtime and the console will give coordinates to paste into this field.
 4. Change variables in the [Runtime] category if desired.
 5. Run `python exacqman.py --help` for usage info.
 
@@ -27,7 +27,7 @@ For API testing, [check out the Postman collection](https://weareipc.postman.co/
   -h | --help            Display this help text
   -v | --version         Display script version
   extract                Extract, timelapse, and compress a video file
-    -[door_number]       Door number of camera wanted (must be an integer)
+    -[door_number]       Door number of camera wanted
     -date                Date of the requested video. If the footage spans past midnight, provide the date on which the footage starts.
     -start               Starting timestamp of video requested
     -end                 Ending timestamp of video requested
@@ -35,14 +35,16 @@ For API testing, [check out the Postman collection](https://weareipc.postman.co/
     -o | --output_name   Desired filepath
     --quality            Desired video quality (choices: low, medium, high)
     --multiplier         Desired timelapse multiplier (must be a positive integer)
+    -c | --crop          Crop the video. Set by config file or query user
   compress               Compress a video file
     -video_filename      Video file to compress
-    -compression_quality Desired compression quality (choices: low, medium, high)
+    -quality             Desired compression quality (choices: low, medium, high)
     -o | --output_name   Desired filepath
   timelapse              Create a timelapse video
     -video_filename      Video file for timelapse
     -multiplier          Desired timelapse multiplier (must be a positive integer)
     -o | --output_name   Desired filepath
+    -c | --crop          Crop the video. Set by config file or query user
 ```
 
 ## Testing
@@ -55,9 +57,9 @@ For API testing, [check out the Postman collection](https://weareipc.postman.co/
 
 ### Example commands:
 
-- Extract mode: `python script_name.py extract <door_number> <date> <start> <end> <config_file> --output_name <output_name> --quality <quality> --multiplier <multiplier>`
+- Extract mode: `python script_name.py extract <door_number> <date> <start> <end> <config_file> --output_name <output_name> --quality <quality> --multiplier <multiplier> --crop <crop>`
 - Compress mode: `python script_name.py compress <video_filename> <compression_quality> --output_name <output_name>`
-- Timelapse mode: `python script_name.py timelapse <video_filename> <multiplier> --output_name <output_name>`
+- Timelapse mode: `python script_name.py timelapse <video_filename> <multiplier> --output_name <output_name> --crop <crop>`
 
 ## Exacqvision API Interaction
 

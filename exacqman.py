@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from configparser import ConfigParser
 from moviepy import VideoFileClip
 from datetime import timedelta, datetime
@@ -10,6 +11,65 @@ from ast import literal_eval
 import cv2
 import argparse
 import sys
+
+
+@dataclass
+class Settings:
+    ''' 
+    Class that centralizes the settings for the program.
+    Default settings can be set in this class. 
+    ArgParse and configParser overwrite the settings in this class (argParse > configParser > defaults)
+    '''
+    user: str = None
+    password: str = None
+    server_ip: str = None
+
+    cameras: dict = None                      # List of camera 'door_numbers' -> camera id's
+
+    timelapse_multiplier: int = 10      # Must be a positive int
+    compression_level: str = 'medium'   # Should be 'low', 'medium', or 'high'
+    timezone: str = None
+    crop: bool = False                  # Does the video need cropped? Crop_dimensions only matter if this is True.
+    crop_dimensions: tuple[tuple[int,int],tuple[int,int]] = None # (x,y)(width,height) where (x,y) = top left of rectangle
+    thickness: int = 2                  # Font thickness
+
+    door_number: str = None             # Designates which camera
+    input_filename: str = None          # Video filename that needs processed
+    output_filename: str = None         # Desired name of output file (will always be .mp4)
+    date: str = None                    # MM/DD (e.g. '3/11')
+    start_time: str = None              # Start time of video (e.g. '6 pm', '6:30pm', '18:30')
+    end_time: str = None                # End time of video (e.g. '6 pm', '6:30pm', '18:30')
+
+    @classmethod
+    def from_args_and_config(cls, args: argparse.Namespace, config: ConfigParser = ConfigParser()) -> 'Settings':
+        """Merge argparse, config file, and defaults in that priority."""
+        
+        def set_value(arg_value = None, config_value = None, cls_value = None):
+            ''' Sets correct value for each variable respecting priority: argParse > configParser > defaults '''
+            return getattr(args, arg_value, None) or config_value or cls_value if arg_value else (config_value or cls_value) # Skip the arg check if there is no arg_value (otherwise it crashes with a TypeError)
+
+        # Build settings with priority: args > config > default
+        return cls(
+            # User, password, server_ip, and cameras are exclusively from the config file so there is no set_value call.
+            user=config.get('Auth','user',fallback=''),
+            password=config.get('Auth','password',fallback=''),
+            server_ip=config.get('Network','server_ip',fallback=''),
+            cameras=config['Cameras'] if 'Cameras' in config else None,
+
+            timelapse_multiplier=int(set_value(arg_value='multiplier', config_value=config.get('Settings','timelapse_multiplier',fallback=''), cls_value=cls.timelapse_multiplier)),
+            compression_level=set_value(arg_value='quality', config_value=config.get('Settings','compression_level',fallback=''), cls_value=cls.compression_level),
+            timezone=config.get('Settings', 'timezone', fallback=''),
+            crop=bool(set_value(arg_value='crop', cls_value=cls.crop)),
+            crop_dimensions=literal_eval(config.get('Settings','crop_dimensions',fallback='')) if config.get('Settings', 'crop_dimensions', fallback='') else None,
+            thickness=int(set_value(config_value=config.get('Settings','thickness',fallback=''), cls_value=cls.thickness)),
+
+            door_number=set_value(arg_value='door_number', config_value=config.get('Runtime','door_number',fallback=''), cls_value=cls.door_number),
+            input_filename=set_value(arg_value='video_filename'),
+            output_filename=set_value(arg_value='output_name', config_value=config.get('Runtime','filename',fallback=''), cls_value=cls.output_filename),
+            date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback=''), cls_value=cls.door_number),
+            start_time=set_value(arg_value='start', config_value=config.get('Runtime','start_time',fallback=''), cls_value=cls.start_time),
+            end_time=set_value(arg_value='end', config_value=config.get('Runtime','end_time',fallback=''), cls_value=cls.end_time)
+        )
 
 
 def import_config(config_file: str) -> ConfigParser:
@@ -61,16 +121,18 @@ def validate_config(config: ConfigParser) -> bool:
         fatal = True
 
     if 'timelapse_multiplier' not in config['Settings'] or not config['Settings']['timelapse_multiplier'].strip():
-        errors.append('timelapse_multiplier is missing or empty. Program will default to 10') # Default is set by the timelapse_video function
+        errors.append('timelapse_multiplier is missing or empty. Program will default to 10') 
     else:
         try:
-            int(config['Settings']['timelapse_multiplier'])
+            if (int(config['Settings']['timelapse_multiplier']) <= 0):
+                errors.append('timelapse_multiplier must be a positive integer')
+                fatal = True
         except ValueError:
-            errors.append('timelapse_multiplier must be an integer')
+            errors.append('timelapse_multiplier must be a positive integer')
             fatal = True
 
     if 'compression_level' not in config['Settings'] or not config['Settings']['compression_level'].strip():
-        errors.append('compression_level is missing or empty. Program will default to medium') # Default is set by the compress_video function
+        errors.append('compression_level is missing or empty. Program will default to medium') 
 
     crop_dimensions = config['Settings'].get('crop_dimensions', '').strip()
     if crop_dimensions:
@@ -82,9 +144,17 @@ def validate_config(config: ConfigParser) -> bool:
                 errors.append('crop_dimensions should contain integers only')
         except ValueError:
             errors.append('crop_dimensions should follow the format: ((x, y), (width, height))')
-                
 
-
+    if 'thickness' not in config['Settings'] or not config['Settings']['thickness'].strip():
+        errors.append('thickness is missing or empty. Program will default to 2')
+    else:
+        try:
+            if (int(config['Settings']['thickness']) <= 0):
+                errors.append('thickness must be a positive integer')
+                fatal = True
+        except ValueError:
+            errors.append('thickness must be a postive integer')
+            fatal = True
         
     for camera_number, camera_value in config['Cameras'].items():
             if not camera_value.strip():
@@ -107,16 +177,15 @@ def validate_config(config: ConfigParser) -> bool:
         return True
 
 
-def process_video(original_video_path: str, output_video_path: str = None, multiplier: int = 10, timestamps: list[datetime] = None, crop: bool = False, crop_dimensions = None) -> str:
+def process_video(original_video_path: str, output_video_path: str = None, timestamps: list[datetime] = None) -> str:
     """
-    Creates a timelapse video from the original video file by applying the specified multiplier.
+    Processes a video by cropping, timelapsing, and timestamping it based on attributes of the settings object.
 
     If timestamps are provided, they are added to the video.
 
     Args:
         original_video_path (str):                  The filepath of the original video.
         output_video_path (str, optional):          The filepath for the output video. 
-        multiplier (int, optional):                 The timelapse multiplier (must be a positive integer). Default is 10.
         timestamps (list of datetime, optional):    A list of timestamps to be added to the video. 
                                                     If provided, each frame's timestamp will be added to the video.
 
@@ -175,7 +244,8 @@ def process_video(original_video_path: str, output_video_path: str = None, multi
         h = int(h / scale)
 
         coords = ((x,y),(w,h))
-        print(f'Crop coord: {coords}')
+        print(f'Crop coordinates selected: {coords}')
+        print(f'For future use: Copy this into config file under [Settings]: crop_dimensions = {coords}')
         return coords
 
 
@@ -206,6 +276,8 @@ def process_video(original_video_path: str, output_video_path: str = None, multi
 
         return x_position, y_position
 
+    
+    multiplier = settings.timelapse_multiplier
 
     # Ensure the input file has the correct extension
     if not original_video_path.endswith('.mp4'):
@@ -229,11 +301,11 @@ def process_video(original_video_path: str, output_video_path: str = None, multi
     height, width = frame.shape[:2]
 
     # Handle cropping setup
-    if crop:
-        if crop_dimensions is None:
-            crop_dimensions = select_crop(frame)
+    if settings.crop:
+        if settings.crop_dimensions is None:
+            settings.crop_dimensions = select_crop(frame)
 
-        (x, y), (crop_width, crop_height) = crop_dimensions
+        (x, y), (crop_width, crop_height) = settings.crop_dimensions
         
         # Validate crop dimensions
         if x + crop_width > width or y + crop_height > height:
@@ -250,17 +322,17 @@ def process_video(original_video_path: str, output_video_path: str = None, multi
     if timestamps:
         number_of_timestamps = len(timestamps)
 
-    thickness = 2
-    font_scale = calculate_font_scale(crop_width, thickness)  # Use crop_width instead of width
+    thickness = settings.thickness
+    font_scale = calculate_font_scale(crop_width, thickness)
 
-    print('Processing Video.')
+    print(f'Processing Video ({output_video_path})...')
     pbar = tqdm(total=total_frames, leave=False)
     # Use crop dimensions for output video
     writer = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (crop_width, crop_height))
     count = 0
 
     while success:
-        if crop:
+        if settings.crop:
             # Ensure crop stays within bounds
             finished_frame = frame[y:y+crop_height, x:x+crop_width]
             if finished_frame.shape[:2] != (crop_height, crop_width):
@@ -286,18 +358,17 @@ def process_video(original_video_path: str, output_video_path: str = None, multi
     writer.release()
     vid.release()
     
-    print('Video successfully processed.')
-    return output_video_path, crop_dimensions
+    print(f'{output_video_path} successfully processed.')
+    return output_video_path
 
 
-def compress_video(original_video_path: str, compressed_video_path: str = None, quality: str = 'medium', crop: bool = False, custom_resolution: tuple[int,int] = None, codec: str = "libx264") -> str:
+def compress_video(original_video_path: str, compressed_video_path: str = None, codec: str = "libx264") -> str:
     """
-    Compresses a video file to a specified quality and codec.
+    Compresses a video file to a specified quality set by the settings object.
 
     Args:
         original_video_path (str): The file path of the original video.
         compressed_video_path (str, optional): The desired file path for the compressed video. Defaults to None.
-        quality (str): The quality level for the compressed video ('low', 'medium', 'high'). Defaults to 'medium'.
         codec (str): The codec to use for compression. Defaults to 'libx264'.
 
     Returns:
@@ -310,6 +381,8 @@ def compress_video(original_video_path: str, compressed_video_path: str = None, 
     # Ensure the input file has the correct extension
     if not original_video_path.endswith('.mp4'):
         original_video_path += '.mp4'
+
+    quality = settings.compression_level
 
     # If not specified, rename the output file to the same as input with codec and bitrate appended to it (e.g. video_libx264_500K.mp4)
     if compressed_video_path is None:
@@ -327,15 +400,15 @@ def compress_video(original_video_path: str, compressed_video_path: str = None, 
     else:
         raise ValueError("Compression quality must be one of: 'low', 'medium', 'high'")
 
-    if crop:
-        resolution = custom_resolution
+    if settings.crop:
+        resolution = settings.crop_dimensions[1] # crop_dimensions[1] gives (width,height)
 
-    print('Beginning Video compression.')
+    print(f'Beginning Video compression...')
 
     with VideoFileClip(original_video_path, target_resolution=resolution) as video:
         video.write_videofile(compressed_video_path, bitrate=bitrate, codec=codec) #libx264 gave really good compression per runtime
     
-    print('Video successfully compressed.')
+    print(f'Video successfully compressed.')
 
     return compressed_video_path
 
@@ -353,64 +426,41 @@ def parse_arguments():
 
     """
 
-
-    config_file = next((arg for arg in sys.argv if arg.endswith(".config")), None) # Returns the first argument that contains the substring '.config'
-
-    # This if/else is necessary to keep the extract subparser from crashing when trying to set defaults.
-    if config_file:
-        config = import_config(config_file)
-        door_number = config['Runtime']['door_number']
-        date = config['Runtime']['date']
-        start_time = config['Runtime']['start_time']
-        end_time = config['Runtime']['end_time']
-        filename = config['Runtime']['filename']
-        quality = config['Settings']['compression_level']
-        timelapse_multiplier = int(config['Settings']['timelapse_multiplier'])
-    else:
-        config = None
-        door_number = None
-        date = None
-        start_time = None
-        end_time = None
-        filename = None
-        quality = None
-        timelapse_multiplier = None
-
-
     arg_parser = argparse.ArgumentParser()
 
     subparsers = arg_parser.add_subparsers(dest='command')
 
     # Extract mode subcommand
     extract_parser = subparsers.add_parser('extract', help='Extract, timelapse, and compress a video file')
-    extract_parser.add_argument('door_number', nargs='?', default=door_number, type=str, help='Door number of camera wanted (must be an integer)')
-    extract_parser.add_argument('date', nargs='?', default=date, type=str, help='Date of the requested video. If the footage spans past midnight, provide the date on which the footage starts. (e.g. 3/11)')
-    extract_parser.add_argument('start', nargs='?', default=start_time, type=str, help='Starting timestamp of video requested (e.g. 11am)')
-    extract_parser.add_argument('end', nargs='?', default=end_time, type=str, help='Ending timestamp of video requested (e.g. 5pm)')
+    extract_parser.add_argument('door_number', nargs='?', default=None, type=str, help='Door number of camera wanted')
+    extract_parser.add_argument('date', nargs='?', default=None, type=str, help='Date of the requested video. If the footage spans past midnight, provide the date on which the footage starts. (e.g. 3/11)')
+    extract_parser.add_argument('start', nargs='?', default=None, type=str, help='Starting timestamp of video requested (e.g. 11am)')
+    extract_parser.add_argument('end', nargs='?', default=None, type=str, help='Ending timestamp of video requested (e.g. 5pm)')
     extract_parser.add_argument('config_file', type=str, help='Filepath of local config file')
-    extract_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
-    extract_parser.add_argument('--quality', type=str, default=quality, choices=['low', 'medium', 'high'], help='Desired video quality')
-    extract_parser.add_argument('--multiplier', type=int, default=timelapse_multiplier, help='Desired timelapse multiplier (must be a positive integer)')
+    extract_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
+    extract_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
+    extract_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
     extract_parser.add_argument('-c', '--crop', action='store_true', help='Crop the video. Set by config file or query user.')
 
     # Compress subcommand
     compress_parser = subparsers.add_parser('compress', help='Compress a video file')
     compress_parser.add_argument('video_filename', type=str, help='Video file to compress')
-    compress_parser.add_argument('compression_quality', default=quality, type=str, choices=['low', 'medium', 'high'], help='Desired compression quality')
-    compress_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
+    compress_parser.add_argument('quality', default=None, type=str, choices=['low', 'medium', 'high'], help='Desired compression quality')
+    compress_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
 
     # Timelapse subcommand
     timelapse_parser = subparsers.add_parser('timelapse', help='Create a timelapse video')
     timelapse_parser.add_argument('video_filename', type=str, help='Video file for timelapse')
-    timelapse_parser.add_argument('multiplier', type=int, default=timelapse_multiplier, help='Desired timelapse multiplier (must be a positive integer)')
-    timelapse_parser.add_argument('-o', '--output_name', default=filename, type=str, help='Desired filepath')
+    timelapse_parser.add_argument('multiplier', default=None, type=int, help='Desired timelapse multiplier (must be a positive integer)')
+    timelapse_parser.add_argument('-o', '--output_name', default=None, type=str, help='Desired filepath')
+    timelapse_parser.add_argument('-c', '--crop', action='store_true', help='Crop the video. Set by config file or query user.')
 
     # Prints help text if the command doesn't begin with default, timelapse, or compress
     if len(sys.argv) < 2 or sys.argv[1] not in ['extract', 'timelapse', 'compress']:
         arg_parser.print_help()
         exit(1)
 
-    return arg_parser.parse_args(), config
+    return arg_parser.parse_args()
 
 
 def convert_input_to_datetime(date:str, start:str, end:str) -> tuple[datetime, datetime]:
@@ -430,6 +480,8 @@ def convert_input_to_datetime(date:str, start:str, end:str) -> tuple[datetime, d
 
     return start_datetime, end_datetime
 
+
+settings = None
 
 def main():
     """
@@ -456,43 +508,41 @@ def main():
     Returns:
     None
     """
+    global settings
     
-    args, config = parse_arguments()
+    args = parse_arguments()
+    config = None
+
+    # If config file is specified in args, then read the config.
+    config_file = getattr(args, 'config_file', None)
+    if config_file:
+        config = import_config(config_file)
+
+    settings = Settings.from_args_and_config(args, config) if config else Settings.from_args_and_config(args)
 
     if args.command == 'extract':
     
-        username = config['Auth']['user']
-        password = config['Auth']['password']
-        cameras = config['Cameras']
-        timezone = config['Settings']['timezone']
-        server_ip = config['Network']['server_ip']
+        cameras = settings.cameras
+        timezone = ZoneInfo(settings.timezone)
 
-        start, end = convert_input_to_datetime(args.date, args.start, args.end)
+        start, end = convert_input_to_datetime(settings.date, settings.start_time, settings.end_time)
 
-        timezone = ZoneInfo(timezone)
 
         # Instantiate api class and retrieve video
-        exapi = Exacqvision(server_ip, username, password, timezone)
-        extracted_video_name = exapi.get_video(cameras.get(args.door_number), start, end, video_filename=args.output_name)
-        video_timestamps = exapi.get_timestamps(cameras.get(args.door_number), start, end)
+        exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone)
+        extracted_video_name = exapi.get_video(cameras.get(settings.door_number), start, end, video_filename=settings.output_filename)
+        video_timestamps = exapi.get_timestamps(cameras.get(settings.door_number), start, end)
         exapi.logout()
 
-        # Process video after extraction
-        try:
-            crop_dimensions=literal_eval(config['Settings']['crop_dimensions'])
-            # print(crop_dimensions)
-        except:
-            crop_dimensions=None
-
-        processed_video_path,crop_dimensions = process_video(extracted_video_name, multiplier=args.multiplier, timestamps=video_timestamps, crop=args.crop, crop_dimensions=crop_dimensions)
-        compress_video(processed_video_path, quality=args.quality, crop=args.crop, custom_resolution=crop_dimensions[1])
+        processed_video_path = process_video(extracted_video_name, timestamps=video_timestamps)
+        compress_video(processed_video_path)
 
     elif args.command == 'compress':
-        compress_video(args.video_filename, args.output_name, quality=args.compression_quality, crop=args.crop, custom_resolution=crop_dimensions[1])
+        compress_video(settings.input_filename, settings.output_filename)
 
     elif args.command == 'timelapse':
 
-        process_video(args.video_filename, args.output_name, multiplier=args.multiplier)
+        process_video(settings.input_filename, settings.output_filename)
 
 
 if __name__ == "__main__":
