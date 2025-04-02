@@ -24,16 +24,16 @@ class Settings:
     password: str = None
     server_ip: str = None
 
-    cameras: dict = None                      # List of camera 'door_numbers' -> camera id's
+    cameras: dict = None                # List of camera aliases -> camera id's
 
     timelapse_multiplier: int = 10      # Must be a positive int
     compression_level: str = 'medium'   # Should be 'low', 'medium', or 'high'
     timezone: str = None
     crop: bool = False                  # Does the video need cropped? Crop_dimensions only matter if this is True.
     crop_dimensions: tuple[tuple[int,int],tuple[int,int]] = None # (x,y)(width,height) where (x,y) = top left of rectangle
-    thickness: int = 2                  # Font thickness
+    font_weight: int = 2                # Font thickness
 
-    door_number: str = None             # Designates which camera
+    camera_alias: str = None            # Designates which camera
     input_filename: str = None          # Video filename that needs processed
     output_filename: str = None         # Desired name of output file (will always be .mp4)
     date: str = None                    # MM/DD (e.g. '3/11')
@@ -61,12 +61,12 @@ class Settings:
             timezone=config.get('Settings', 'timezone', fallback=''),
             crop=bool(set_value(arg_value='crop', cls_value=cls.crop)),
             crop_dimensions=literal_eval(config.get('Settings','crop_dimensions',fallback='')) if config.get('Settings', 'crop_dimensions', fallback='') else None,
-            thickness=int(set_value(config_value=config.get('Settings','thickness',fallback=''), cls_value=cls.thickness)),
+            font_weight=int(set_value(config_value=config.get('Settings','font_weight',fallback=''), cls_value=cls.font_weight)),
 
-            door_number=set_value(arg_value='door_number', config_value=config.get('Runtime','door_number',fallback=''), cls_value=cls.door_number),
+            camera_alias=set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback=''), cls_value=cls.camera_alias),
             input_filename=set_value(arg_value='video_filename'),
             output_filename=set_value(arg_value='output_name', config_value=config.get('Runtime','filename',fallback=''), cls_value=cls.output_filename),
-            date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback=''), cls_value=cls.door_number),
+            date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback=''), cls_value=cls.camera_alias),
             start_time=set_value(arg_value='start', config_value=config.get('Runtime','start_time',fallback=''), cls_value=cls.start_time),
             end_time=set_value(arg_value='end', config_value=config.get('Runtime','end_time',fallback=''), cls_value=cls.end_time)
         )
@@ -144,16 +144,16 @@ def validate_config(config: ConfigParser) -> bool:
                 errors.append('crop_dimensions should contain integers only')
         except ValueError:
             errors.append('crop_dimensions should follow the format: ((x, y), (width, height))')
-
-    if 'thickness' not in config['Settings'] or not config['Settings']['thickness'].strip():
-        errors.append('thickness is missing or empty. Program will default to 2')
+    
+    if 'font_weight' not in config['Settings'] or not config['Settings']['font_weight'].strip():
+        errors.append('font_weight is missing or empty. Program will default to 2')
     else:
         try:
-            if (int(config['Settings']['thickness']) <= 0):
-                errors.append('thickness must be a positive integer')
+            if (int(config['Settings']['font_weight']) <= 0):
+                errors.append('font_weight must be a positive integer')
                 fatal = True
         except ValueError:
-            errors.append('thickness must be a postive integer')
+            errors.append('font_weight must be a postive integer')
             fatal = True
         
     for camera_number, camera_value in config['Cameras'].items():
@@ -223,7 +223,7 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         # Resize frame to fit screen dimensions
         resized_frame, scale = fit_to_screen(frame, window_name)
 
-        instructions = "Drag to select ROI, then press Enter."
+        instructions = "Drag to select desired region, then press Enter."
 
         # Replace 'first_frame' with frame with instructions
         frame_with_text = resized_frame.copy()
@@ -249,7 +249,7 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         return coords
 
 
-    def calculate_font_scale(video_width: int, font_thickness: int) -> float:
+    def calculate_font_scale(video_width: int) -> float:
         # Static timestamp to calculate scale
         timestamp_string = datetime(2025, 3, 28, 6, 43, 20).strftime('%Y-%m-%d %H:%M:%S')
 
@@ -257,7 +257,7 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         max_text_width = int(video_width * 0.8)
 
         # Dynamically determine font scale based on text width
-        text_size = cv2.getTextSize(timestamp_string, cv2.FONT_HERSHEY_SIMPLEX, 1, font_thickness)[0]
+        text_size = cv2.getTextSize(timestamp_string, cv2.FONT_HERSHEY_SIMPLEX, 1, settings.font_weight)[0]
         text_width, text_height = text_size
 
         font_scale = max_text_width / text_width
@@ -265,9 +265,9 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         return font_scale
 
 
-    def calculate_xy_text_position(video_height: int, video_width: int, timestamp_string: str, font_scale: float, thickness: int) -> tuple[int]:
+    def calculate_xy_text_position(video_height: int, video_width: int, timestamp_string: str, font_scale: float) -> tuple[int]:
         # Recalculate text size with the dynamic font scale
-        text_size = cv2.getTextSize(timestamp_string, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)[0]
+        text_size = cv2.getTextSize(timestamp_string, cv2.FONT_HERSHEY_SIMPLEX, font_scale, settings.font_weight)[0]
         text_width, text_height = text_size
 
         # Calculate position: centered horizontally, with 10% margin at the bottom
@@ -322,8 +322,7 @@ def process_video(original_video_path: str, output_video_path: str = None, times
     if timestamps:
         number_of_timestamps = len(timestamps)
 
-    thickness = settings.thickness
-    font_scale = calculate_font_scale(crop_width, thickness)
+    font_scale = calculate_font_scale(crop_width)
 
     print(f'Processing Video ({output_video_path})...')
     pbar = tqdm(total=total_frames, leave=False)
@@ -344,8 +343,8 @@ def process_video(original_video_path: str, output_video_path: str = None, times
             frame_position = vid.get(cv2.CAP_PROP_POS_FRAMES)
             current_timestamp = timestamps[int(frame_position / total_frames * (number_of_timestamps - 1))]
             timestamp_string = current_timestamp.strftime('%Y-%m-%d %H:%M:%S')
-            x_pos, y_pos = calculate_xy_text_position(crop_height, crop_width, timestamp_string, font_scale, thickness)
-            cv2.putText(finished_frame, timestamp_string, (x_pos, y_pos), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+            x_pos, y_pos = calculate_xy_text_position(crop_height, crop_width, timestamp_string, font_scale)
+            cv2.putText(finished_frame, timestamp_string, (x_pos, y_pos), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), settings.font_weight, cv2.LINE_AA)
 
         if count % multiplier == 0:
             writer.write(finished_frame)
@@ -432,7 +431,7 @@ def parse_arguments():
 
     # Extract mode subcommand
     extract_parser = subparsers.add_parser('extract', help='Extract, timelapse, and compress a video file')
-    extract_parser.add_argument('door_number', nargs='?', default=None, type=str, help='Door number of camera wanted')
+    extract_parser.add_argument('camera_alias', nargs='?', default=None, type=str, help='Name of camera wanted')
     extract_parser.add_argument('date', nargs='?', default=None, type=str, help='Date of the requested video. If the footage spans past midnight, provide the date on which the footage starts. (e.g. 3/11)')
     extract_parser.add_argument('start', nargs='?', default=None, type=str, help='Starting timestamp of video requested (e.g. 11am)')
     extract_parser.add_argument('end', nargs='?', default=None, type=str, help='Ending timestamp of video requested (e.g. 5pm)')
@@ -500,10 +499,10 @@ def main():
 
     Configuration:
     - Auth: Authentication credentials including user and password.
-    - Cameras: Camera IDs using door number as key.
+    - Cameras: Camera IDs using camera_alias as key.
     - Settings: Timezone, timelapse multiplier, and compression level.
     - Network: Server IP address.
-    - Runtime: Door number, filename, date, start_time, and end_time.
+    - Runtime: Camera alias, filename, date, start_time, and end_time.
 
     Returns:
     None
@@ -530,8 +529,8 @@ def main():
 
         # Instantiate api class and retrieve video
         exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone)
-        extracted_video_name = exapi.get_video(cameras.get(settings.door_number), start, end, video_filename=settings.output_filename)
-        video_timestamps = exapi.get_timestamps(cameras.get(settings.door_number), start, end)
+        extracted_video_name = exapi.get_video(cameras.get(settings.camera_alias), start, end, video_filename=settings.output_filename)
+        video_timestamps = exapi.get_timestamps(cameras.get(settings.camera_alias), start, end)
         exapi.logout()
 
         processed_video_path = process_video(extracted_video_name, timestamps=video_timestamps)
