@@ -18,6 +18,14 @@ class ExacqvisionTimeoutError(ExacqvisionError):
 
 
 class Exacqvision:
+    """
+    Interface for interacting with the Exacqvision API to manage video exports and camera data.
+
+    Attributes:
+        base_url (str): Base URL of the Exacqvision server.
+        timezone (ZoneInfo): Timezone for handling timestamps.
+        session (str): Session ID for authenticated API calls.
+    """
     
     def __init__(self, base_url:str, username: str, password: str, timezone: ZoneInfo):
         self.base_url = base_url
@@ -27,16 +35,14 @@ class Exacqvision:
 
     def login(self, username: str, password: str) -> str:
         """
-        Logs user into Exacqvision's API.
+        Authenticates with the Exacqvision API and retrieves a session ID.
 
         Args:
-            username (str): The username for the Exacqvision API.
-            password (str): The password for the Exacqvision API.
+            username (str): Username for authentication.
+            password (str): Password for authentication.
 
         Returns:
-            session_id (str): session_id to authorize other API calls.
-
-        Note that session_id is required for many other API calls.
+            str: Session ID for subsequent API calls.
         """
 
         url = f"{self.base_url}/v1/login.web"
@@ -66,6 +72,12 @@ class Exacqvision:
 
 
     def list_cameras(self):
+        """
+        Retrieves a list of cameras available on the Exacqvision server.
+
+        Returns:
+            list: List of camera details.
+        """
         url = f"{self.base_url}v1/config.web?s={self.session}&output=json"
 
         response = requests.request("GET", url)
@@ -74,7 +86,7 @@ class Exacqvision:
 
 
     def convert_GMT_to_local(self, time: datetime) -> datetime:
-        '''Converts timezones to datetimes in the local timezone.'''
+        '''Converts a GMT datetime to the local timezone.'''
 
         # Parse the input string and assign the timezone in one line
         gmt_datetime = time.replace(tzinfo=ZoneInfo('GMT'))
@@ -86,7 +98,7 @@ class Exacqvision:
 
 
     def convert_local_to_GMT(self, time: datetime) -> datetime:
-        '''Converts timezones to datetimes in GMT timezone.'''
+        '''Converts a local timezone datetime to GMT.'''
 
         # Parse the input string and assign the timezone in one line
         local_datetime = time.replace(tzinfo=self.timezone)
@@ -104,21 +116,18 @@ class Exacqvision:
 
     def create_search(self, camera_id: int, start: datetime, stop: datetime) -> tuple[str, requests.Response]:
         """
-        Creates a search request for video recordings.
+        Creates a search request for video recordings within a time range.
 
         Args:
-            session (str): The session ID for authentication.
-            camera_id (int): The ID of the camera to search.
-            start (datetime): The start time of the search as a datetime object.
-            stop (datetime): The stop time of the search as a datetime object.
+            camera_id (int): ID of the camera.
+            start (datetime): Start time of the search.
+            stop (datetime): End time of the search.
 
         Returns:
-            tuple: A tuple containing:
-                - str: The search ID of the created search.
-                - requests.Response: The response object from the search request.
+            tuple[str, requests.Response]: Search ID and the API response.
 
         Raises:
-            requests.exceptions.RequestException: If the request fails.
+            ExacqvisionError: If the search request fails.
         """
 
         # Convert datetimes into timestamps
@@ -127,34 +136,30 @@ class Exacqvision:
         url = f"{self.base_url}/v1/search.web?s={self.session}&start={start}&end={stop}&camera={camera_id}&output=json"
         # print(url)
 
-        response = requests.request("GET", url)
-        
-        if response.status_code != 200: 
-            print(f'Search request failed with status code: {response.status_code}')
-
-        search_id = json.loads(response.text)['search_id']
-
-        # pprint(response.json())
-
-        return search_id, response
+        try:
+            response = requests.request("GET", url)
+            response.raise_for_status()
+            search_id = json.loads(response.text)['search_id']
+            return search_id, response
+        except (RequestException, ValueError, KeyError) as e:
+            raise ExacqvisionError(f"Export request failed: {str(e)}")
 
 
     def export_request(self, camera_id: int, start: datetime, stop: datetime, name: str=None) -> str:
         """
-        Initiates an export request for video recordings.
+        Initiates a video export request.
 
         Args:
-            session (str): The session ID for authentication.
-            camera_id (int): The ID of the camera to export video from.
-            start (datetime): The start time of the search as a datetime object.
-            stop (datetime): The stop time of the search as a datetime object.
-            name (str, optional): The name of the exported file. Defaults to None.
+            camera_id (int): ID of the camera.
+            start (datetime): Start time of the video.
+            stop (datetime): End time of the video.
+            name (str, optional): Desired name for the exported file.
 
         Returns:
-            str: The export ID of the created export request.
+            str: Export ID for tracking the request.
 
         Raises:
-            requests.exceptions.RequestException: If the request fails.
+            ExacqvisionError: If the export request fails.
         """
 
         # Convert datetimes into timestamps
@@ -178,7 +183,15 @@ class Exacqvision:
 
 
     def export_status(self, export_id:str) -> bool:
+        """
+        Checks the status of an export request.
 
+        Args:
+            export_id (str): ID of the export request.
+
+        Returns:
+            bool: True if the export is complete (100%), False otherwise.
+        """
         url = f"{self.base_url}/v1/export.web?export={export_id}"
 
         response = requests.request("GET", url)
@@ -194,6 +207,15 @@ class Exacqvision:
 
 
     def export_download(self, export_id:str) -> str:
+        """
+        Downloads the completed video export.
+
+        Args:
+            export_id (str): ID of the export request.
+
+        Returns:
+            str: Path to the downloaded video file.
+        """
 
         url = f"{self.base_url}/v1/export.web?export={export_id}&action=download"
 
@@ -224,7 +246,7 @@ class Exacqvision:
 
 
     def export_delete(self, export_id:str):
-
+        '''Deletes an export request from the server.'''
         url = f"{self.base_url}/v1/export.web?export={export_id}&action=finish"
 
         response = requests.request("GET", url)
@@ -234,18 +256,21 @@ class Exacqvision:
 
     def get_video(self, camera: int, start: datetime, stop: datetime, video_filename: str, timeout: int = 25):
         """
-        Initiates an export request for video footage from a specified camera between given start and stop times,
-        and downloads the exported video once the request is successful. Cleans up the export request afterwards.
+        Exports and downloads a video from the specified camera and time range.
 
         Args:
-            camera (int):           The ID of the camera to export video from.
-            start (datetime):       The start time of the search as a datetime object.
-            stop (datetime):        The stop time of the search as a datetime object.
-            video_filename (str):   The desired name for the exported video file.
+            camera (int):           ID of the camera.
+            start (datetime):       Start time of the search as a datetime object.
+            stop (datetime):        End time of the search as a datetime object.
+            video_filename (str):   Desired name for the exported video file.
             timeout (int):          How many seconds the script will wait for export_status to be 100%
 
         Returns:
-            Optional(str):          The file path to the downloaded video if successful, otherwise None.
+            str: Path to the downloaded video file.
+
+        Raises:
+            ExacqvisionError: If the export or download fails.
+            ExacqvisionTimeoutError: If the export does not complete within the timeout.
         """
         export_id = None
         try:
@@ -271,7 +296,17 @@ class Exacqvision:
         
         
     def get_timestamps(self, camera_id: int, start: datetime, stop: datetime) -> list[datetime]:
-        '''Extracts timestamps from create_search and converts them into a list of datetime objects, each representing one second of the video.'''
+        """
+        Retrieves timestamps for video clips within a time range.
+
+        Args:
+            camera_id (int): ID of the camera.
+            start (datetime): Start time of the range.
+            stop (datetime): End time of the range.
+
+        Returns:
+            list[datetime]: List of unique timestamps (one per second) in the local timezone.
+        """
         
         search_id, response = self.create_search(camera_id, start, stop)
 

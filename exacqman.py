@@ -88,8 +88,17 @@ def import_config(config_file: str) -> ConfigParser:
 
 
 def validate_config(config: ConfigParser) -> bool:
-    ''' Checks config file for errors and returns a bool indicating if it finds anything missing from the config file that would cause a crash.'''
+    """
+    Validates the configuration file for required sections and values.
 
+    Args:
+        config (ConfigParser): Parsed configuration object.
+
+    Returns:
+        bool: True if the configuration is valid, False otherwise.
+
+    Prints error messages for missing or invalid entries and exits if fatal errors are found.
+    """
     errors = []
     fatal = False
 
@@ -205,6 +214,7 @@ def process_video(original_video_path: str, output_video_path: str = None, times
 
     Raises:
         SystemExit: If the original video file cannot be opened.
+        TypeError: If the timelapse multiplier is invalid.
     """
 
     def fit_to_screen(frame, window_name, screen_width, screen_height):
@@ -377,12 +387,12 @@ def compress_video(original_video_path: str, compressed_video_path: str = None, 
     Compresses a video file to a specified quality set by the settings object.
 
     Args:
-        original_video_path (str): The file path of the original video.
+        original_video_path (str): The filepath of the original video.
         compressed_video_path (str, optional): The desired file path for the compressed video. Defaults to None.
-        codec (str): The codec to use for compression. Defaults to 'libx264'.
+        codec (str): Compression codec (default: 'libx264').
 
     Returns:
-        str: The file path of the compressed video.
+        str: The filepath of the compressed video.
 
     Raises:
         ValueError: If the quality is not 'low', 'medium', or 'high'.
@@ -425,15 +435,14 @@ def compress_video(original_video_path: str, compressed_video_path: str = None, 
 
 def parse_arguments():
     """
-    Parses command-line arguments and configuration file for video processing tasks.
+    Parses command-line arguments for video processing tasks.
 
-    This function identifies and processes configuration files provided in the command-line arguments.
-    It initializes the argument parser, sets up subcommands, and defines specific arguments for the 'extract',
-    'compress', and 'timelapse' commands. If an invalid command is detected, it displays the help text and exits.
+    Supports three subcommands: 'extract' (retrieve and process video from Exacqvision),
+    'compress' (compress an existing video), and 'timelapse' (apply timelapse effect).
+    Displays help text and exits if an invalid command is provided.
 
     Returns:
-        tuple: Contains parsed command-line arguments and configuration settings.
-
+        argparse.Namespace: Parsed command-line arguments.
     """
 
     arg_parser = argparse.ArgumentParser()
@@ -475,7 +484,17 @@ def parse_arguments():
 
 
 def convert_input_to_datetime(date:str, start:str, end:str) -> tuple[datetime, datetime]:
-    '''Takes simple tokens for date and time and returns start and end as datetimes.'''
+    """
+    Converts date and time strings to datetime objects for video extraction.
+
+    Args:
+        date (str): Date in MM/DD format (e.g., '3/11').
+        start (str): Start time (e.g., '6 pm', '18:30').
+        end (str): End time (e.g., '6 pm', '18:30').
+
+    Returns:
+        tuple[datetime, datetime]: Start and end datetime objects, adjusted for year and day if needed.
+    """
     
     start_datetime = duparse(f'{date} {start}')
     end_datetime = duparse(f'{date} {end}')
@@ -496,28 +515,14 @@ settings = None
 
 def main():
     """
-    Main entry point of the script.
-    This function handles various video processing tasks including extraction, compression, 
-    and timelapse creation based on the command-line arguments provided.
+    Main entry point for video processing script.
 
-    Workflow:
-    - Parses command-line arguments and configuration settings.
-    - If the command is 'extract', retrieves video from the server, processes it with a timelapse effect, and compresses it.
-    - If the command is 'compress', compresses an existing video file.
-    - If the command is 'timelapse', applies a timelapse effect to an existing video file.
+    Handles three modes based on command-line arguments:
+    - 'extract': Retrieves video from an Exacqvision server, applies timelapse, and compresses it.
+    - 'compress': Compresses an existing video file.
+    - 'timelapse': Applies a timelapse effect to an existing video file.
 
-    Arguments:
-    None (parses command-line arguments internally).
-
-    Configuration:
-    - Auth: Authentication credentials including user and password.
-    - Cameras: Camera IDs using camera_alias as key.
-    - Settings: Timezone, timelapse multiplier, and compression level.
-    - Network: Server IP address.
-    - Runtime: Camera alias, filename, date, start_time, and end_time.
-
-    Returns:
-    None
+    Uses a configuration file and command-line arguments to set parameters.
     """
     global settings
     
