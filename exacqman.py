@@ -65,10 +65,10 @@ class Settings:
             crop_dimensions=literal_eval(config.get('Settings','crop_dimensions',fallback='')) if config.get('Settings', 'crop_dimensions', fallback='') else None,
             font_weight=int(set_value(config_value=config.get('Settings','font_weight',fallback=''), cls_value=cls.font_weight)),
 
-            server=set_value(arg_value='server', config_value=config['Runtime']['server'], cls_value=cls.server),
+            server=set_value(arg_value='server', config_value=config.get('Runtime', 'server', fallback=''), cls_value=cls.server),
             server_ip=config['Network'].get(set_value(arg_value='server', config_value=config['Runtime']['server'])) if 'Network' in config else None,
-            camera_alias=set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback='')),
-            camera_id=config['Cameras'].get(set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback=''))),
+            camera_alias=set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback=''), cls_value=cls.camera_alias),
+            camera_id=config['Cameras'].get(set_value(arg_value='camera_alias', config_value=config['Runtime']['camera_alias'])) if 'Cameras' in config else None,
             input_filename=set_value(arg_value='video_filename', cls_value=cls.input_filename),
             output_filename=set_value(arg_value='output_name', config_value=config.get('Runtime','filename',fallback=''), cls_value=cls.output_filename),
             date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback=''), cls_value=cls.date),
@@ -244,14 +244,14 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         # Resize frame to fit screen dimensions
         resized_frame, scale = fit_to_screen(frame, window_name, temp_width, temp_height)
 
-        instructions = "Drag to select desired region, then press Enter."
+        instructions = "Click and drag to select desired region, then press Enter."
 
         # Replace 'first_frame' with frame with instructions
         frame_with_text = resized_frame.copy()
         text_size = cv2.getTextSize(instructions, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)[0]
         text_x = (frame_with_text.shape[1] - text_size[0]) // 2
         text_y = 30  # Position at the top of the frame
-        cv2.putText(frame_with_text, instructions, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+        cv2.putText(frame_with_text, instructions, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
 
         # Show the resized frame and allow ROI selection
         roi = cv2.selectROI(window_name, frame_with_text, showCrosshair=True, fromCenter=False)
@@ -546,12 +546,12 @@ def main():
 
         # Instantiate api class and retrieve video
         exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone)
-        print(f'Camera_id is : {settings.camera_id}')
+
         try:
             extracted_video_name = exapi.get_video(settings.camera_id, start, end, video_filename=settings.output_filename)
             video_timestamps = exapi.get_timestamps(settings.camera_id, start, end)
         except ExacqvisionError as e:
-            print(f'Failed to get video. Make sure selected camera: {settings.camera_alias} is part of selected server: {settings.server}.')
+            print(f'Failed to get video. Make sure selected camera: {settings.camera_alias} is part of selected server: {settings.server}. {e}')
             exit(1)
         finally:
             exapi.logout()
