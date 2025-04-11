@@ -78,7 +78,7 @@ class Exacqvision:
         Returns:
             list: List of camera details.
         """
-        url = f"{self.base_url}v1/config.web?s={self.session}&output=json"
+        url = f"{self.base_url}/v1/config.web?s={self.session}&output=json"
 
         response = requests.request("GET", url)
         cameras = json.loads(response.text)['Cameras']
@@ -168,6 +168,10 @@ class Exacqvision:
         url = f"{self.base_url}/v1/export.web?camera={camera_id}&s={self.session}&start={start}&end={stop}&format=mp4"
         if name:
             url = url+f'&name={name}'
+
+        cameras = self.list_cameras()
+        if not any(int(camera['id']) == int(camera_id) for camera in cameras):
+            raise ExacqvisionError(f'CameraID: {camera_id} is not found in server')
 
         print('Creating export request.')
         try:
