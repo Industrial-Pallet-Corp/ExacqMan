@@ -5,9 +5,9 @@ from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse as duparse
 from zoneinfo import ZoneInfo
-from exacqvision import Exacqvision
 from tqdm import tqdm
 from ast import literal_eval
+from exacqvision import Exacqvision, ExacqvisionError
 import cv2
 import argparse
 import sys
@@ -22,9 +22,9 @@ class Settings:
     '''
     user: str = None
     password: str = None
-    server_ip: str = None
 
-    cameras: dict = None                # List of camera aliases -> camera id's
+    servers: dict = None                # Dictionary of servers -> server ip's
+    cameras: dict = None                # Dictionary of camera aliases -> camera id's
 
     timelapse_multiplier: int = 10      # Must be a positive int
     compression_level: str = 'medium'   # Should be 'low', 'medium', or 'high'
@@ -33,7 +33,10 @@ class Settings:
     crop_dimensions: tuple[tuple[int,int],tuple[int,int]] = None # (x,y)(width,height) where (x,y) = top left of rectangle
     font_weight: int = 2                # Font thickness
 
-    camera_alias: str = None            # Designates which camera
+    server: str = None                  # Server name (Should match to one of the servers in config file under [Network])
+    server_ip: str = None               # IP address of the Exacqman server
+    camera_alias: str = None            # Camera name (Should match to one of the cameras in config file under [Cameras])
+    camera_id: str = None               # Camera Id for Exacqman server
     input_filename: str = None          # Video filename that needs processed
     output_filename: str = None         # Desired name of output file (will always be .mp4)
     date: str = None                    # MM/DD (e.g. '3/11')
@@ -53,20 +56,22 @@ class Settings:
             # User, password, server_ip, and cameras are exclusively from the config file so there is no set_value call.
             user=config.get('Auth','user',fallback=''),
             password=config.get('Auth','password',fallback=''),
-            server_ip=config.get('Network','server_ip',fallback=''),
             cameras=config['Cameras'] if 'Cameras' in config else None,
 
             timelapse_multiplier=int(set_value(arg_value='multiplier', config_value=config.get('Settings','timelapse_multiplier',fallback=''), cls_value=cls.timelapse_multiplier)),
             compression_level=set_value(arg_value='quality', config_value=config.get('Settings','compression_level',fallback=''), cls_value=cls.compression_level),
-            timezone=config.get('Settings', 'timezone', fallback=''),
+            timezone=set_value(config_value=config.get('Settings', 'timezone', fallback=''),cls_value=cls.timezone),
             crop=bool(set_value(arg_value='crop', cls_value=cls.crop)),
             crop_dimensions=literal_eval(config.get('Settings','crop_dimensions',fallback='')) if config.get('Settings', 'crop_dimensions', fallback='') else None,
             font_weight=int(set_value(config_value=config.get('Settings','font_weight',fallback=''), cls_value=cls.font_weight)),
 
-            camera_alias=set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback=''), cls_value=cls.camera_alias),
-            input_filename=set_value(arg_value='video_filename'),
+            server=set_value(arg_value='server', config_value=config['Runtime']['server'], cls_value=cls.server),
+            server_ip=config['Network'].get(set_value(arg_value='server', config_value=config['Runtime']['server'])) if 'Network' in config else None,
+            camera_alias=set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback='')),
+            camera_id=config['Cameras'].get(set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback=''))),
+            input_filename=set_value(arg_value='video_filename', cls_value=cls.input_filename),
             output_filename=set_value(arg_value='output_name', config_value=config.get('Runtime','filename',fallback=''), cls_value=cls.output_filename),
-            date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback=''), cls_value=cls.camera_alias),
+            date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback=''), cls_value=cls.date),
             start_time=set_value(arg_value='start', config_value=config.get('Runtime','start_time',fallback=''), cls_value=cls.start_time),
             end_time=set_value(arg_value='end', config_value=config.get('Runtime','end_time',fallback=''), cls_value=cls.end_time)
         )
@@ -112,9 +117,10 @@ def validate_config(config: ConfigParser) -> bool:
         errors.append('password is missing or empty')
         fatal = True
 
-    if 'server_ip' not in config['Network'] or not config['Network']['server_ip'].strip():
-        errors.append('server_ip is missing or empty')
-        fatal = True
+    for server_name, server_ip in config['Network'].items():
+        if not server_ip.strip():
+            errors.append(f'Server: {server_name} has no server_ip')
+            fatal = True
 
     if 'timezone' not in config['Settings'] or not config['Settings']['timezone'].strip():
         errors.append('timezone is missing or empty')
@@ -155,17 +161,22 @@ def validate_config(config: ConfigParser) -> bool:
         except ValueError:
             errors.append('font_weight must be a postive integer')
             fatal = True
-        
+
+    server = config['Runtime']['server']
+    if server not in config['Network']:
+        errors.append(f'Server {server} not found in the Network list')
+        fatal = True
+
     for camera_number, camera_value in config['Cameras'].items():
-            if not camera_value.strip():
-                errors.append(f'Camera {camera_number} has no id')
+        if not camera_value.strip():
+            errors.append(f'Camera {camera_number} has no id')
+            fatal = True
+        else:
+            try:
+                int(camera_value)
+            except ValueError:
+                errors.append(f'Camera ID {camera_number} must be an integer')
                 fatal = True
-            else:
-                try:
-                    int(camera_value)
-                except ValueError:
-                    errors.append(f'Camera ID {camera_number} must be an integer')
-                    fatal = True
 
 
     if errors:
@@ -196,9 +207,8 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         SystemExit: If the original video file cannot be opened.
     """
 
-    def fit_to_screen(frame, window_name):
+    def fit_to_screen(frame, window_name, screen_width, screen_height):
         """Resize a frame to fit within the screen dimensions."""
-        screen_width, screen_height = cv2.getWindowImageRect(window_name)[2:]
         original_height, original_width = frame.shape[:2]
 
         # Determine scaling factor to fit frame within screen dimensions
@@ -218,10 +228,11 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         window_name = "Select ROI"
         
         cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(window_name, 960, 540)  # Temporary window size
+        temp_width, temp_height = (960,540)
+        cv2.resizeWindow(window_name, temp_width, temp_height)  # Temporary window size
 
         # Resize frame to fit screen dimensions
-        resized_frame, scale = fit_to_screen(frame, window_name)
+        resized_frame, scale = fit_to_screen(frame, window_name, temp_width, temp_height)
 
         instructions = "Drag to select desired region, then press Enter."
 
@@ -436,6 +447,7 @@ def parse_arguments():
     extract_parser.add_argument('start', nargs='?', default=None, type=str, help='Starting timestamp of video requested (e.g. 11am)')
     extract_parser.add_argument('end', nargs='?', default=None, type=str, help='Ending timestamp of video requested (e.g. 5pm)')
     extract_parser.add_argument('config_file', type=str, help='Filepath of local config file')
+    extract_parser.add_argument('--server', type=str, help='Server location initials ("Clark Hill" = "ch")')
     extract_parser.add_argument('-o', '--output_name', type=str, help='Desired filepath')
     extract_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
     extract_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
@@ -529,9 +541,15 @@ def main():
 
         # Instantiate api class and retrieve video
         exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone)
-        extracted_video_name = exapi.get_video(cameras.get(settings.camera_alias), start, end, video_filename=settings.output_filename)
-        video_timestamps = exapi.get_timestamps(cameras.get(settings.camera_alias), start, end)
-        exapi.logout()
+        print(f'Camera_id is : {settings.camera_id}')
+        try:
+            extracted_video_name = exapi.get_video(settings.camera_id, start, end, video_filename=settings.output_filename)
+            video_timestamps = exapi.get_timestamps(settings.camera_id, start, end)
+        except ExacqvisionError as e:
+            print(f'Failed to get video. Make sure selected camera: {settings.camera_alias} is part of selected server: {settings.server}.')
+            exit(1)
+        finally:
+            exapi.logout()
 
         processed_video_path = process_video(extracted_video_name, timestamps=video_timestamps)
         compress_video(processed_video_path)

@@ -1,9 +1,20 @@
 import requests, json
+from requests.exceptions import RequestException
 from time import sleep
 from pprint import pprint
 from tqdm import tqdm
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+
+
+class ExacqvisionError(Exception):
+    """Custom exception for Exacqvision API errors."""
+    pass
+
+
+class ExacqvisionTimeoutError(ExacqvisionError):
+    """Custom exception for Exacqvision API timeout errors."""
+    pass
 
 
 class Exacqvision:
@@ -154,12 +165,16 @@ class Exacqvision:
             url = url+f'&name={name}'
 
         print('Creating export request.')
-        response = requests.request("GET", url)
-        # pprint(response.json())
-        export_id = json.loads(response.text)['export_id']
-        print(f'Export request created. Export ID is {export_id}')
-
-        return export_id
+        try:
+            response = requests.request("GET", url)
+            response.raise_for_status()
+            export_id = json.loads(response.text).get('export_id')
+            if not export_id:
+                raise ExacqvisionError("Export creation failed: No export ID found in the response.")
+            print(f'Export request created. Export ID is {export_id}')
+            return export_id
+        except (RequestException, ValueError, KeyError) as e:
+            raise ExacqvisionError(f"Export request failed: {str(e)}")
 
 
     def export_status(self, export_id:str) -> bool:
@@ -217,42 +232,42 @@ class Exacqvision:
         return(response.text)
 
 
-    def get_video(self, camera: int, start: datetime, stop: datetime, video_filename: str):
+    def get_video(self, camera: int, start: datetime, stop: datetime, video_filename: str, timeout: int = 25):
         """
         Initiates an export request for video footage from a specified camera between given start and stop times,
         and downloads the exported video once the request is successful. Cleans up the export request afterwards.
 
         Args:
-            camera (int): The ID of the camera to export video from.
-            start (datetime): The start time of the search as a datetime object.
-            stop (datetime): The stop time of the search as a datetime object.
-            video_filename (str): The desired name for the exported video file.
+            camera (int):           The ID of the camera to export video from.
+            start (datetime):       The start time of the search as a datetime object.
+            stop (datetime):        The stop time of the search as a datetime object.
+            video_filename (str):   The desired name for the exported video file.
+            timeout (int):          How many seconds the script will wait for export_status to be 100%
 
         Returns:
-            Optional(str): The file path to the downloaded video if successful, otherwise None.
+            Optional(str):          The file path to the downloaded video if successful, otherwise None.
         """
+        export_id = None
+        try:
+            export_id = self.export_request(camera, start, stop, name=video_filename)
+            sleep(2)  # Wait briefly before checking status
 
-        export_id = self.export_request(camera, start, stop, name = video_filename)
+            elapsed_time = 0
+            while not self.export_status(export_id) and elapsed_time < timeout:
+                sleep(5)
+                elapsed_time += 5
 
-        sleep(2)  # Wait briefly before checking the status of the export
-        
-        count = 0
-        while not self.export_status(export_id) and count<5:
-            sleep(5)
-            count += 1
-        
-        if count < 10:
-            filename = self.export_download(export_id)
-        else:
-            print('Export failed. Deleting request.')
-        
-        sleep(2)  # Give time after downloading before attempting delete
-        self.export_delete(export_id) # Clean up request whether exporting succeeds or fails.
-        
-        if filename:
-            return filename
-        else:
-            return None
+            if elapsed_time >= timeout:
+                raise ExacqvisionTimeoutError(f"Export {export_id} failed to complete within time.")
+
+            return self.export_download(export_id)
+
+        except ExacqvisionError as e:
+            raise ExacqvisionError(f"Failed to get video: {str(e)}")
+        finally:
+            if export_id:
+                sleep(2)  # Ensure download completes before cleanup
+                self.export_delete(export_id)  # Clean up export request
         
         
     def get_timestamps(self, camera_id: int, start: datetime, stop: datetime) -> list[datetime]:
