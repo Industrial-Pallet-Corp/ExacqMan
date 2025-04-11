@@ -1,78 +1,166 @@
 # ExacqMan
-Python-based footage extractor utilizing the ExacqVision Web API to extract video footage from specified cameras and apply timelapse or compression techniques based on user input.
 
-For API testing, [check out the Postman collection](https://weareipc.postman.co/workspace/Industrial-Pallet-Corp~f0dc5379-c365-405e-8a29-ee8050839c42/collection/38801065-56761369-c40d-4cb1-9ab1-3f0a7efb59c9?action=share&creator=38801065&active-environment=7096363-3d41cab2-1adc-47b2-8041-ef8c9b87eb00)
+A Python-based tool for extracting video footage from ExacqVision servers using the ExacqVision Web API. It supports creating timelapse videos, compressing footage, and overlaying timestamps, with flexible configuration via command-line arguments and config files.
+
+For API testing, [explore the Postman collection](https://weareipc.postman.co/workspace/Industrial-Pallet-Corp~f0dc5379-c365-405e-8a29-ee8050839c42/collection/38801065-56761369-c40d-4cb1-9ab1-3f0a7efb59c9?action=share&creator=38801065&active-environment=7096363-3d41cab2-1adc-47b2-8041-ef8c9b87eb00).
 
 ## Requirements
 
-- Python 3.x
+- Python 3.8+
 - `requests`
 - `tqdm`
 - `moviepy`
-- `cv2` (OpenCV)
+- `opencv-python` (cv2)
+- `python-dateutil`
 - `tzdata`
-- `dateutil`
+
+## Setup
+
+1. Clone this repository or download `exacqman.py`, `exacqvision.py`, and `default.config`.
+2. Copy `default.config` and rename it (e.g., `mydefault.config`).
+3. Edit the config file:
+   - **[Auth]**: Set `user` and `password` for ExacqVision API access.
+   - **[Network]**: List server names and their IP addresses.
+   - **[Cameras]**: Map camera aliases to their IDs.
+   - **[Settings]**: Configure `timezone`, `timelapse_multiplier` (positive integer), `compression_level` (`low`, `medium`, or `high`), `crop_dimensions` (leave blank for interactive cropping), and `font_weight` (positive integer for timestamp thickness).
+   - **[Runtime]**: Optionally set defaults for `server`, `camera_alias`, `filename`, `date`, `start_time`, and `end_time`.
+4. Save the config file.
 
 ## Usage
 
-1. Clone this repository, or download exacqman.py, exacvision.py, and default.config.
-2. Copy default.config and rename the copy to your liking. Fill in user and password fields. 
-3. Change variables in the [Settings] category as desired. (Note: 'timelapse_multiplier' and 'thickness must be positive integers and 'compression_level' must be one of [low, medium, high]). 'crop_dimensions' should be left blank, the user can select the region during runtime and the console will give coordinates to paste into this field.
-4. Change variables in the [Runtime] category if desired.
-5. Run `python exacqman.py --help` for usage info.
+Run `python exacqman.py --help` for detailed command-line options. The script supports three modes:
 
-### Usage:
+### Commands
 
+- **extract**: Retrieves video from an ExacqVision server, applies timelapse, adds timestamps, and compresses the output.
+- **compress**: Compresses an existing video file to a specified quality.
+- **timelapse**: Creates a timelapse video from an existing file, with optional cropping and timestamping.
+
+### Command-Line Syntax
+
+```bash
+python exacqman.py [-h | --help] <command> [<args>]
 ```
-  -h | --help            Display this help text
-  -v | --version         Display script version
-  extract                Extract, timelapse, and compress a video file
-    -[door_number]       Door number of camera wanted
-    -date                Date of the requested video. If the footage spans past midnight, provide the date on which the footage starts.
-    -start               Starting timestamp of video requested
-    -end                 Ending timestamp of video requested
-    -config_file         Filepath of local config file
-    -o | --output_name   Desired filepath
-    --quality            Desired video quality (choices: low, medium, high)
-    --multiplier         Desired timelapse multiplier (must be a positive integer)
-    -c | --crop          Crop the video. Set by config file or query user
-  compress               Compress a video file
-    -video_filename      Video file to compress
-    -quality             Desired compression quality (choices: low, medium, high)
-    -o | --output_name   Desired filepath
-  timelapse              Create a timelapse video
-    -video_filename      Video file for timelapse
-    -multiplier          Desired timelapse multiplier (must be a positive integer)
-    -o | --output_name   Desired filepath
-    -c | --crop          Crop the video. Set by config file or query user
+
+#### Extract Mode
+
+```bash
+python exacqman.py extract [camera_alias] [date] [start] [end] [config_file] [--server SERVER] [-o OUTPUT_NAME] [--quality {low,medium,high}] [--multiplier MULTIPLIER] [-c]
 ```
+
+- `camera_alias`: Camera name (e.g., "front_door").
+- `date`: Date in MM/DD format (e.g., "3/11"). Use the start date if footage spans midnight.
+- `start`: Start time (e.g., "6pm", "18:30").
+- `end`: End time (e.g., "8pm", "20:00").
+- `config_file`: Path to configuration file.
+- `--server`: Server name (e.g., "ch" for Clark Hill).
+- `-o, --output_name`: Output file path (default: based on input with suffixes).
+- `--quality`: Compression quality (`low`, `medium`, `high`).
+- `--multiplier`: Timelapse speed factor (positive integer).
+- `-c, --crop`: Enable cropping (interactive if `crop_dimensions` not set).
+
+#### Compress Mode
+
+```bash
+python exacqman.py compress video_filename quality [-o OUTPUT_NAME]
+```
+
+- `video_filename`: Input video file path.
+- `quality`: Compression quality (`low`, `medium`, `high`).
+- `-o, --output_name`: Output file path.
+
+#### Timelapse Mode
+
+```bash
+python exacqman.py timelapse video_filename multiplier [-o OUTPUT_NAME] [-c]
+```
+
+- `video_filename`: Input video file path.
+- `multiplier`: Timelapse speed factor (positive integer).
+- `-o, --output_name`: Output file path.
+- `-c, --crop`: Enable cropping.
+
+### Example Commands
+
+- Extract video from a camera for March 11, 6 PM to 8 PM, with config and cropping:
+  ```bash
+  python exacqman.py extract front_door 3/11 6pm 8pm mydefault.config --server ch --output_name output.mp4 --quality medium --multiplier 10 --crop
+  ```
+- Compress a video to medium quality:
+  ```bash
+  python exacqman.py compress input.mp4 medium --output_name compressed.mp4
+  ```
+- Create a 5x timelapse video:
+  ```bash
+  python exacqman.py timelapse input.mp4 5 --output_name timelapse.mp4 --crop
+  ```
+
+## Configuration File
+
+The config file (`default.config` template) is structured as follows:
+
+```ini
+[Auth]
+user = your_username
+password = your_password
+
+[Network]
+ch = 192.168.1.100
+ny = 192.168.2.100
+
+[Cameras]
+front_door = 1
+back_door = 2
+
+[Settings]
+timezone = US/Eastern
+timelapse_multiplier = 10
+compression_level = medium
+crop_dimensions = 
+font_weight = 2
+
+[Runtime]
+server = ch
+camera_alias = front_door
+filename = output.mp4
+date = 3/11
+start_time = 6pm
+end_time = 8pm
+```
+
+- Leave `crop_dimensions` blank to select interactively during runtime; the script will output coordinates to copy into the config.
+- Ensure `timelapse_multiplier` and `font_weight` are positive integers.
+- `compression_level` must be `low`, `medium`, or `high`.
 
 ## Testing
 
-1. Ensure the configuration file is properly set up.
-2. Run the script in the desired mode (extract, compress, or timelapse) with appropriate arguments.
-3. When entering the date, it should be of the form mm/dd or mm/dd/yyyy.
-4. When entering the start or end time, it should be of the form hh:mm:ssAM|PM (no spaces), or a simplified version.
-5. Observe the generated video files for the applied timelapse or compression effects.
-
-### Example commands:
-
-- Extract mode: `python script_name.py extract <door_number> <date> <start> <end> <config_file> --output_name <output_name> --quality <quality> --multiplier <multiplier> --crop <crop>`
-- Compress mode: `python script_name.py compress <video_filename> <compression_quality> --output_name <output_name>`
-- Timelapse mode: `python script_name.py timelapse <video_filename> <multiplier> --output_name <output_name> --crop <crop>`
+1. Verify the configuration file is properly set up.
+2. Test with sample commands in each mode.
+3. Date format: `MM/DD` or `MM/DD/YYYY`.
+4. Time format: `HH:MM:SSAM|PM` (e.g., "6:00:00PM"), or simplified (e.g., "6pm").
+5. Check output videos for correct timelapse speed, compression quality, cropping, and timestamp accuracy.
 
 ## Exacqvision API Interaction
 
-The `exacvision.py` script interacts with the Exacqvision API to perform the following actions:
+The `exacqvision.py` module handles API communication:
 
-- **Login:** Logs the user into the Exacqvision API and retrieves session ID and available camera IDs.
-- **Logout:** Logs the user out using a valid session ID.
-- **List Cameras:** Lists available cameras for the authenticated user.
-- **Create Search:** Initiates a search request for video recordings from a specified camera.
-- **Export Request:** Initiates an export request for video recordings.
-- **Export Status:** Checks the status of an export request.
-- **Export Download:** Downloads the exported video file.
-- **Export Delete:** Deletes an export request after completion.
-- **Get Video:** Combines the above Export actions to retrieve and download video recordings.
+- **Login**: Authenticates and retrieves a session ID.
+- **Logout**: Ends the session.
+- **List Cameras**: Retrieves available cameras.
+- **Create Search**: Queries video clip timestamps.
+- **Export Request**: Initiates video export.
+- **Export Status**: Monitors export request progress.
+- **Export Download**: Downloads the video.
+- **Export Delete**: Cleans up export requests.
+- **Get Video**: Combines export steps to retrieve a video.
+- **Get Timestamps**: Extracts timestamps for video frames.
 
-Example usage for `exacvision.py` functions can be found within the script's docstrings and inline comments.
+See docstrings in `exacqvision.py` for detailed usage.
+
+## Notes
+
+- The script adds timestamps to extracted videos using server-provided clip data.
+- Cropping can be set in the config or selected interactively during runtime.
+- Output files are always `.mp4`.
+- Compression uses `libx264` codec with adjustable bitrate and resolution based on quality settings.
+- Ensure network access to the ExacqVision server and valid credentials.
