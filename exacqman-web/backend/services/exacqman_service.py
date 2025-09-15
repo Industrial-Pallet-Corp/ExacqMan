@@ -1,18 +1,17 @@
 """
 ExacqMan Service
 
-Handles subprocess calls to the ExacqMan CLI tool and manages video processing operations.
+Handles interaction with the ExacqMan CLI tool for video processing operations.
 """
 
 import asyncio
 import subprocess
-import os
 import logging
 from typing import Dict, Any, Optional
 from pathlib import Path
 import shutil
 
-from api.models import ExtractRequest, CompressRequest, TimelapseRequest
+from api.models import ExtractRequest
 
 logger = logging.getLogger(__name__)
 
@@ -40,28 +39,30 @@ class ExacqManService:
             subprocess.CalledProcessError: If the CLI command fails
         """
         try:
+            # Convert datetime objects to the format expected by ExacqMan CLI
+            start_date = request.start_datetime.strftime("%m/%d")
+            start_time = request.start_datetime.strftime("%I:%M %p").lstrip('0')
+            end_time = request.end_datetime.strftime("%I:%M %p").lstrip('0')
+            
+            # Generate output filename
+            output_filename = self._generate_output_filename(request)
+            
             # Build command arguments
             cmd_args = [
                 "python3", self.exacqman_path,
                 "extract",
                 request.camera_alias,
-                request.date,
-                request.start_time,
-                request.end_time,
-                request.config_file
+                start_date,
+                start_time,
+                end_time,
+                request.config_file,
+                "--multiplier", str(request.timelapse_multiplier),
+                "-o", output_filename
             ]
             
-            # Add optional arguments
+            # Add optional server argument
             if request.server:
                 cmd_args.extend(["--server", request.server])
-            if request.output_name:
-                cmd_args.extend(["-o", request.output_name])
-            if request.quality:
-                cmd_args.extend(["--quality", request.quality.value])
-            if request.multiplier:
-                cmd_args.extend(["--multiplier", str(request.multiplier)])
-            if request.crop:
-                cmd_args.append("-c")
             
             logger.info(f"Running extract command: {' '.join(cmd_args)}")
             
@@ -84,192 +85,128 @@ class ExacqManService:
             output = stdout.decode() if stdout else ""
             logger.info(f"Extract command completed: {output}")
             
-            # Determine output filename
-            output_filename = self._determine_output_filename(request, "extract")
+            # Clean up intermediate files
+            await self._cleanup_intermediate_files()
+            
+            # Move final output to exports directory
+            final_path = await self._move_to_exports(output_filename)
             
             return {
                 "operation": "extract",
-                "output_file": output_filename,
+                "output_file": final_path,
+                "filename": Path(final_path).name,
                 "status": "completed",
-                "message": "Video extraction completed successfully"
+                "message": "Video extraction completed successfully",
+                "cleanup_completed": True
             }
             
         except Exception as e:
             logger.error(f"Error in extract_video: {str(e)}")
+            # Try to clean up even if extraction failed
+            try:
+                await self._cleanup_intermediate_files()
+            except Exception as cleanup_error:
+                logger.error(f"Cleanup failed after extraction error: {cleanup_error}")
             raise
     
-    async def compress_video(self, request: CompressRequest) -> Dict[str, Any]:
+    def _generate_output_filename(self, request: ExtractRequest) -> str:
         """
-        Compress an existing video file.
+        Generate a consistent output filename for the extract operation.
         
         Args:
-            request: CompressRequest containing video file and quality settings
+            request: ExtractRequest object
             
         Returns:
-            Dict containing result information
-            
-        Raises:
-            subprocess.CalledProcessError: If the CLI command fails
+            Generated filename
+        """
+        date_str = request.start_datetime.strftime("%Y-%m-%d")
+        return f"{date_str}_{request.camera_alias}_{request.timelapse_multiplier}x.mp4"
+    
+    async def _cleanup_intermediate_files(self):
+        """
+        Clean up intermediate files created during video processing.
+        
+        This removes temporary files that ExacqMan creates during processing
+        but keeps only the final output.
         """
         try:
-            # Build command arguments
-            cmd_args = [
-                "python3", self.exacqman_path,
-                "compress",
-                request.video_filename,
-                request.quality.value
+            # Look for common intermediate file patterns
+            intermediate_patterns = [
+                "*.tmp",
+                "*_temp.*",
+                "*_intermediate.*",
+                "temp_*",
+                "*.log"
             ]
             
-            # Add optional output name
-            if request.output_name:
-                cmd_args.extend(["-o", request.output_name])
+            cleaned_files = []
+            for pattern in intermediate_patterns:
+                for file_path in self.working_directory.glob(pattern):
+                    if file_path.is_file():
+                        file_path.unlink()
+                        cleaned_files.append(file_path.name)
             
-            logger.info(f"Running compress command: {' '.join(cmd_args)}")
-            
-            # Run the command asynchronously
-            process = await asyncio.create_subprocess_exec(
-                *cmd_args,
-                cwd=self.working_directory,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            
-            stdout, stderr = await process.communicate()
-            
-            if process.returncode != 0:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                logger.error(f"Compress command failed: {error_msg}")
-                raise subprocess.CalledProcessError(process.returncode, cmd_args, error_msg)
-            
-            # Parse output for result information
-            output = stdout.decode() if stdout else ""
-            logger.info(f"Compress command completed: {output}")
-            
-            # Determine output filename
-            output_filename = self._determine_output_filename(request, "compress")
-            
-            return {
-                "operation": "compress",
-                "output_file": output_filename,
-                "status": "completed",
-                "message": "Video compression completed successfully"
-            }
-            
+            if cleaned_files:
+                logger.info(f"Cleaned up {len(cleaned_files)} intermediate files: {cleaned_files}")
+            else:
+                logger.info("No intermediate files found to clean up")
+                
         except Exception as e:
-            logger.error(f"Error in compress_video: {str(e)}")
-            raise
+            logger.error(f"Error during cleanup: {str(e)}")
+            # Don't raise the exception as cleanup failure shouldn't fail the job
     
-    async def create_timelapse(self, request: TimelapseRequest) -> Dict[str, Any]:
+    async def _move_to_exports(self, filename: str) -> str:
         """
-        Create a timelapse from an existing video file.
+        Move the final output file to the exports directory.
         
         Args:
-            request: TimelapseRequest containing video file and timelapse settings
+            filename: Name of the file to move
             
         Returns:
-            Dict containing result information
-            
-        Raises:
-            subprocess.CalledProcessError: If the CLI command fails
+            Path to the file in exports directory
         """
         try:
-            # Build command arguments
-            cmd_args = [
-                "python3", self.exacqman_path,
-                "timelapse",
-                request.video_filename,
-                str(request.multiplier)
-            ]
+            # Create exports directory if it doesn't exist
+            exports_dir = self.working_directory / "exacqman-web" / "exports"
+            exports_dir.mkdir(parents=True, exist_ok=True)
             
-            # Add optional arguments
-            if request.output_name:
-                cmd_args.extend(["-o", request.output_name])
-            if request.crop:
-                cmd_args.append("-c")
+            # Look for the file in the working directory
+            source_path = self.working_directory / filename
+            if not source_path.exists():
+                # Try with .mp4 extension if not found
+                source_path = self.working_directory / f"{filename}.mp4"
             
-            logger.info(f"Running timelapse command: {' '.join(cmd_args)}")
+            if not source_path.exists():
+                raise FileNotFoundError(f"Output file not found: {filename}")
             
-            # Run the command asynchronously
-            process = await asyncio.create_subprocess_exec(
-                *cmd_args,
-                cwd=self.working_directory,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
+            # Move to exports directory
+            dest_path = exports_dir / source_path.name
+            shutil.move(str(source_path), str(dest_path))
             
-            stdout, stderr = await process.communicate()
-            
-            if process.returncode != 0:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                logger.error(f"Timelapse command failed: {error_msg}")
-                raise subprocess.CalledProcessError(process.returncode, cmd_args, error_msg)
-            
-            # Parse output for result information
-            output = stdout.decode() if stdout else ""
-            logger.info(f"Timelapse command completed: {output}")
-            
-            # Determine output filename
-            output_filename = self._determine_output_filename(request, "timelapse")
-            
-            return {
-                "operation": "timelapse",
-                "output_file": output_filename,
-                "status": "completed",
-                "message": "Timelapse creation completed successfully"
-            }
+            logger.info(f"Moved {source_path.name} to exports directory")
+            return str(dest_path)
             
         except Exception as e:
-            logger.error(f"Error in create_timelapse: {str(e)}")
+            logger.error(f"Error moving file to exports: {str(e)}")
             raise
-    
-    def _determine_output_filename(self, request, operation: str) -> str:
-        """
-        Determine the output filename based on the request and operation.
-        
-        Args:
-            request: The request object
-            operation: The operation type (extract, compress, timelapse)
-            
-        Returns:
-            The expected output filename
-        """
-        if hasattr(request, 'output_name') and request.output_name:
-            return request.output_name
-        
-        # For extract operation, we need to construct the filename
-        if operation == "extract":
-            # This would need to be coordinated with the actual ExacqMan output
-            # For now, return a placeholder
-            return f"extracted_{request.camera_alias}_{request.date.replace('/', '_')}.mp4"
-        
-        # For compress and timelapse, modify the input filename
-        input_file = request.video_filename
-        name, ext = os.path.splitext(input_file)
-        
-        if operation == "compress":
-            return f"{name}_{request.quality.value}{ext}"
-        elif operation == "timelapse":
-            return f"{name}_{request.multiplier}x{ext}"
-        
-        return input_file
     
     def validate_config_file(self, config_path: str) -> bool:
         """
         Validate that a config file exists and is readable.
         
         Args:
-            config_path: Path to the config file
+            config_path: Path to the configuration file
             
         Returns:
             True if valid, False otherwise
         """
         try:
-            full_path = Path(config_path)
-            if not full_path.is_absolute():
-                full_path = self.working_directory / config_path
+            if not config_path.startswith('/'):
+                config_path = str(self.working_directory / config_path)
             
-            return full_path.exists() and full_path.is_file()
-        except Exception:
+            return Path(config_path).exists()
+        except Exception as e:
+            logger.error(f"Error validating config file {config_path}: {str(e)}")
             return False
     
     def get_available_configs(self) -> list:
@@ -277,13 +214,13 @@ class ExacqManService:
         Get list of available configuration files.
         
         Returns:
-            List of config file paths
+            List of configuration file paths
         """
-        config_files = []
-        config_dir = self.working_directory
-        
-        # Look for .config files
-        for file_path in config_dir.glob("*.config"):
-            config_files.append(str(file_path))
-        
-        return config_files
+        try:
+            config_files = []
+            for file_path in self.working_directory.glob("*.config"):
+                config_files.append(str(file_path))
+            return config_files
+        except Exception as e:
+            logger.error(f"Error getting available configs: {str(e)}")
+            return []

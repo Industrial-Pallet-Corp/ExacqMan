@@ -44,7 +44,6 @@ app.add_middleware(
 
 # Mount static files for serving processed videos
 app.mount("/exports", StaticFiles(directory="exports"), name="exports")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include API routes
 app.include_router(router, prefix="/api")
@@ -61,8 +60,7 @@ async def startup_event():
     """Initialize the application on startup."""
     logger.info("Starting ExacqMan Web Server...")
     
-    # Ensure directories exist
-    os.makedirs("uploads", exist_ok=True)
+    # Ensure exports directory exists
     os.makedirs("exports", exist_ok=True)
     
     logger.info("ExacqMan Web Server started successfully")
@@ -80,11 +78,11 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "extract": "/api/extract",
-            "compress": "/api/compress", 
-            "timelapse": "/api/timelapse",
             "status": "/api/status/{job_id}",
             "files": "/api/files",
-            "download": "/api/download/{filename}"
+            "download": "/api/download/{filename}",
+            "config": "/api/config/{config_file}",
+            "cameras": "/api/cameras/{config_file}"
         }
     }
 
