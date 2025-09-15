@@ -6,7 +6,7 @@
  */
 
 class ExacqManAPI {
-    constructor(baseURL = 'http://localhost:8000/api') {
+    constructor(baseURL = 'http://localhost:8887/api') {
         this.baseURL = baseURL;
         this.defaultHeaders = {
             'Content-Type': 'application/json',
