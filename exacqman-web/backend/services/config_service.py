@@ -174,7 +174,7 @@ class ConfigService:
         try:
             config_files = []
             for file_path in self.working_directory.glob("*.config"):
-                config_files.append(str(file_path))
+                config_files.append(file_path.name)
             
             logger.info(f"Found {len(config_files)} configuration files")
             return config_files

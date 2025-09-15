@@ -42,14 +42,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include API routes FIRST (before static file mounts)
+app.include_router(router, prefix="/api")
+
+# Health check endpoints
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.get("/api/health")
+async def api_health_check():
+    """API health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
 # Mount static files for serving processed videos
 app.mount("/exports", StaticFiles(directory="exports"), name="exports")
 
-# Mount frontend files
+# Mount frontend files (this should be LAST to catch all other routes)
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
-
-# Include API routes
-app.include_router(router, prefix="/api")
 
 # Initialize services
 exacqman_service = ExacqManService()
@@ -88,16 +99,6 @@ async def root():
             "cameras": "/api/cameras/{config_file}"
         }
     }
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
-
-@app.get("/api/health")
-async def api_health_check():
-    """API health check endpoint."""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 if __name__ == "__main__":
     uvicorn.run(

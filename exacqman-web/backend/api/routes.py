@@ -154,6 +154,21 @@ async def download_video(filename: str):
         logger.error(f"Error downloading file {filename}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")
 
+@router.get("/configs", response_model=List[str])
+async def get_available_configs() -> List[str]:
+    """
+    Get list of available configuration files.
+    
+    Returns:
+        List of configuration file names
+    """
+    try:
+        config_files = config_service.get_available_config_files()
+        return config_files
+    except Exception as e:
+        logger.error(f"Error getting available configs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get available configurations")
+
 @router.get("/config/{config_file}", response_model=ConfigInfo)
 async def get_config_info(config_file: str) -> ConfigInfo:
     """

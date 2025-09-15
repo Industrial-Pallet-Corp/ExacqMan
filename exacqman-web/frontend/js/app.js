@@ -167,15 +167,15 @@ class ExacqManApp {
         try {
             this.state.setLoading(true);
             
-            // Load configuration files (we'll implement this when we have the backend)
-            // For now, we'll use a mock configuration
-            const mockConfigs = [
-                { name: 'default.config', path: 'default.config' },
-                { name: 'lucas.config', path: 'lucas.config' }
-            ];
+            // Load configuration files from API
+            const configFiles = await this.api.getAvailableConfigs();
+            const configs = configFiles.map(file => ({
+                name: file,
+                path: file
+            }));
             
-            this.state.updateConfigs(mockConfigs);
-            this.populateConfigSelect(mockConfigs);
+            this.state.updateConfigs(configs);
+            this.populateConfigSelect(configs);
             
             // Load processed videos
             await this.loadProcessedVideos();
