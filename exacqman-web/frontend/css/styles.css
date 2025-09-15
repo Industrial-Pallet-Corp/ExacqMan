@@ -215,6 +215,18 @@ label {
     cursor: not-allowed;
 }
 
+.form-control.error {
+    border-color: var(--error-color);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.field-error {
+    color: var(--error-color);
+    font-size: var(--font-size-sm);
+    margin-top: var(--spacing-1);
+    display: block;
+}
+
 /* Button Styles */
 .btn {
     display: inline-flex;
@@ -271,6 +283,68 @@ label {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-3);
+}
+
+.job-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+}
+
+.job-created {
+    font-size: var(--font-size-xs);
+    color: var(--gray-500);
+}
+
+.job-status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.job-status-badge {
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.job-actions {
+    display: flex;
+    gap: var(--spacing-2);
+}
+
+.job-actions .btn {
+    padding: var(--spacing-1) var(--spacing-2);
+    font-size: var(--font-size-xs);
+}
+
+.job-details {
+    margin-top: var(--spacing-2);
+}
+
+.job-metadata {
+    font-size: var(--font-size-xs);
+    color: var(--gray-600);
+    margin-top: var(--spacing-1);
+}
+
+.job-completed {
+    font-size: var(--font-size-xs);
+    color: var(--gray-500);
+    margin-top: var(--spacing-2);
+    font-style: italic;
+}
+
+.job-progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--gray-700);
 }
 
 .job-item {
@@ -344,6 +418,7 @@ label {
     border-radius: var(--radius-sm);
     overflow: hidden;
     margin: var(--spacing-2) 0;
+    position: relative;
 }
 
 .job-progress-bar {

@@ -7,6 +7,10 @@
 
 import { ExacqManAPI, APIError } from './api.js';
 import AppState from './utils/state.js';
+import CameraSelector from './components/camera-selector.js';
+import DateTimePicker from './components/datetime-picker.js';
+import MultiplierSelector from './components/multiplier-selector.js';
+import JobStatus from './components/job-status.js';
 
 class ExacqManApp {
     constructor() {
@@ -15,12 +19,19 @@ class ExacqManApp {
         this.jobPoller = null;
         this.isInitialized = false;
         
+        // Initialize components
+        this.cameraSelector = null;
+        this.dateTimePicker = null;
+        this.multiplierSelector = null;
+        this.jobStatus = null;
+        
         // Bind methods to preserve context
         this.handleConfigChange = this.handleConfigChange.bind(this);
         this.handleExtractionSubmit = this.handleExtractionSubmit.bind(this);
         this.handleFileRefresh = this.handleFileRefresh.bind(this);
         this.handleFileDownload = this.handleFileDownload.bind(this);
         this.handleFileDelete = this.handleFileDelete.bind(this);
+        this.removeJob = this.removeJob.bind(this);
         
         this.init();
     }
@@ -31,6 +42,9 @@ class ExacqManApp {
     async init() {
         try {
             console.log('Initializing ExacqMan Web Application...');
+            
+            // Initialize components
+            this.initializeComponents();
             
             // Set up event listeners
             this.setupEventListeners();
@@ -51,6 +65,16 @@ class ExacqManApp {
             console.error('Failed to initialize application:', error);
             this.showError('Failed to initialize application. Please refresh the page.');
         }
+    }
+
+    /**
+     * Initialize UI components
+     */
+    initializeComponents() {
+        this.cameraSelector = new CameraSelector(this.api, this.state);
+        this.dateTimePicker = new DateTimePicker(this.state);
+        this.multiplierSelector = new MultiplierSelector(this.state);
+        this.jobStatus = new JobStatus(this.api, this.state);
     }
 
     /**
@@ -220,13 +244,15 @@ class ExacqManApp {
         event.preventDefault();
         
         try {
-            // Validate form
-            const formData = this.getFormData();
-            if (!this.validateFormData(formData)) {
+            // Validate form using components
+            if (!this.validateForm()) {
                 return;
             }
 
             this.state.setLoading(true);
+            
+            // Get form data from components
+            const formData = this.getFormData();
             
             // Submit extraction request
             const response = await this.api.extractVideo(formData);
@@ -241,7 +267,7 @@ class ExacqManApp {
                 });
                 
                 // Start polling for job status
-                this.startJobPolling(response.data.job_id);
+                this.jobStatus.startPolling(response.data.job_id);
                 
                 this.showSuccess('Video extraction started successfully');
                 
@@ -309,47 +335,37 @@ class ExacqManApp {
     // Helper methods
 
     /**
-     * Get form data from extraction form
+     * Validate form using components
+     */
+    validateForm() {
+        const configValid = this.state.get('currentConfig');
+        const cameraValid = this.cameraSelector?.validateSelection();
+        const datetimeValid = this.dateTimePicker?.validateBoth();
+        const multiplierValid = this.multiplierSelector?.validateSelection();
+        
+        return configValid && cameraValid && datetimeValid && multiplierValid;
+    }
+
+    /**
+     * Get form data from components
      */
     getFormData() {
-        const configFile = document.getElementById('config-select').value;
-        const cameraAlias = document.getElementById('camera-select').value;
-        const startDatetime = document.getElementById('start-datetime').value;
-        const endDatetime = document.getElementById('end-datetime').value;
-        const multiplier = parseInt(document.getElementById('multiplier-select').value);
-        const server = document.getElementById('server-select').value || null;
+        const configFile = this.state.get('currentConfig');
+        const cameraInfo = this.cameraSelector?.getSelectedCamera();
+        const datetimeValues = this.dateTimePicker?.getValues();
+        const multiplier = this.multiplierSelector?.getValue();
+        const server = document.getElementById('server-select')?.value || null;
 
         return {
-            camera_alias: cameraAlias,
-            start_datetime: startDatetime,
-            end_datetime: endDatetime,
+            camera_alias: cameraInfo?.alias,
+            start_datetime: datetimeValues?.start_datetime,
+            end_datetime: datetimeValues?.end_datetime,
             timelapse_multiplier: multiplier,
             config_file: configFile,
             server: server
         };
     }
 
-    /**
-     * Validate form data
-     */
-    validateFormData(data) {
-        if (!data.camera_alias) {
-            this.showError('Please select a camera');
-            return false;
-        }
-        
-        if (!data.start_datetime || !data.end_datetime) {
-            this.showError('Please select start and end times');
-            return false;
-        }
-        
-        if (new Date(data.end_datetime) <= new Date(data.start_datetime)) {
-            this.showError('End time must be after start time');
-            return false;
-        }
-        
-        return true;
-    }
 
     /**
      * Load processed videos
@@ -364,20 +380,6 @@ class ExacqManApp {
         }
     }
 
-    /**
-     * Start polling for job status
-     */
-    startJobPolling(jobId) {
-        if (this.jobPoller) {
-            this.jobPoller.stop();
-        }
-        
-        this.jobPoller = new JobPoller(this.api, (jobId, status) => {
-            this.state.updateJobStatus(jobId, status);
-        });
-        
-        this.jobPoller.start(jobId);
-    }
 
     // UI update methods
 
@@ -540,13 +542,25 @@ class ExacqManApp {
     }
 
     /**
+     * Remove job from tracking
+     */
+    removeJob(jobId) {
+        this.state.removeJob(jobId);
+    }
+
+    /**
      * Reset extraction form
      */
     resetExtractionForm() {
+        // Reset components
+        this.cameraSelector?.reset();
+        this.dateTimePicker?.reset();
+        this.multiplierSelector?.reset();
+        
+        // Reset form
         const form = document.getElementById('extraction-form');
         if (form) {
             form.reset();
-            this.setDefaultDateTimeValues();
         }
     }
 
@@ -588,57 +602,6 @@ class ExacqManApp {
     }
 }
 
-/**
- * Job Poller Class
- */
-class JobPoller {
-    constructor(api, onUpdate) {
-        this.api = api;
-        this.onUpdate = onUpdate;
-        this.activeJobs = new Set();
-        this.intervalId = null;
-        this.pollInterval = 2000; // 2 seconds
-    }
-
-    start(jobId) {
-        this.activeJobs.add(jobId);
-        
-        if (!this.intervalId) {
-            this.intervalId = setInterval(() => this.pollJobs(), this.pollInterval);
-        }
-    }
-
-    stop(jobId) {
-        if (jobId) {
-            this.activeJobs.delete(jobId);
-        } else {
-            this.activeJobs.clear();
-        }
-        
-        if (this.activeJobs.size === 0 && this.intervalId) {
-            clearInterval(this.intervalId);
-            this.intervalId = null;
-        }
-    }
-
-    async pollJobs() {
-        const jobs = Array.from(this.activeJobs);
-        
-        for (const jobId of jobs) {
-            try {
-                const status = await this.api.getJobStatus(jobId);
-                this.onUpdate(jobId, status);
-                
-                // Stop polling for completed/failed jobs
-                if (status.status === 'completed' || status.status === 'failed') {
-                    this.stop(jobId);
-                }
-            } catch (error) {
-                console.error(`Failed to poll job ${jobId}:`, error);
-            }
-        }
-    }
-}
 
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
