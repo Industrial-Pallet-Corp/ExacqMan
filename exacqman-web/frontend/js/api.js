@@ -271,7 +271,5 @@ class APIError extends Error {
     }
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ExacqManAPI, APIError };
-}
+// Export for ES6 module usage
+export { ExacqManAPI, APIError };
