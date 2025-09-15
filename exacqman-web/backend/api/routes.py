@@ -95,19 +95,30 @@ async def get_job_status(job_id: str) -> JobStatus:
     Returns:
         JobStatus object with current job information
     """
-    if job_id not in active_jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    job = active_jobs[job_id]
-    
-    return JobStatus(
-        job_id=job_id,
-        status=job["status"],
-        message=job.get("message", ""),
-        created_at=job["created_at"],
-        completed_at=job.get("completed_at"),
-        result=job.get("result")
-    )
+    try:
+        logger.info(f"Getting status for job {job_id}")
+        
+        if job_id not in active_jobs:
+            logger.warning(f"Job {job_id} not found in active_jobs")
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        job = active_jobs[job_id]
+        logger.info(f"Job {job_id} status: {job.get('status', 'unknown')}")
+        
+        return JobStatus(
+            job_id=job_id,
+            status=job["status"],
+            message=job.get("message", ""),
+            created_at=job["created_at"],
+            completed_at=job.get("completed_at"),
+            result=job.get("result")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting job status for {job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get job status: {str(e)}")
 
 @router.get("/files", response_model=List[FileInfo])
 async def list_processed_videos() -> List[FileInfo]:
