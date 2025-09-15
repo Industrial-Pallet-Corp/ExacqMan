@@ -212,7 +212,7 @@ class ExacqManApp {
             this.state.updateCameras([]);
             this.state.updateServers({});
             this.state.setCurrentConfig(null);
-            this.populateCameraSelect([]);
+            // CameraSelector component will handle camera dropdown via state subscription
             this.populateServerSelect({});
             return;
         }
@@ -235,7 +235,7 @@ class ExacqManApp {
             this.state.updateCameras(cameras);
             this.state.updateServers(configInfo.servers || {});
             
-            this.populateCameraSelect(cameras);
+            // CameraSelector component will handle camera dropdown via state subscription
             this.populateServerSelect(configInfo.servers || {});
             
             console.log('Camera select populated with', cameras.length, 'cameras');
@@ -364,7 +364,7 @@ class ExacqManApp {
             cameraValid,
             datetimeValid,
             multiplierValid,
-            cameraSelectValue: document.getElementById('camera-select')?.value
+            cameraSelectValue: this.cameraSelector?.getSelectedCamera()?.alias
         });
         
         return configValid && cameraValid && datetimeValid && multiplierValid;
@@ -376,18 +376,9 @@ class ExacqManApp {
     getFormData() {
         const configFile = this.state.get('currentConfig');
         
-        // Get camera selection directly from DOM instead of relying on component
-        const cameraSelect = document.getElementById('camera-select');
-        console.log('getFormData - cameraSelect element:', cameraSelect);
-        console.log('getFormData - cameraSelect.value:', cameraSelect?.value);
-        console.log('getFormData - cameraSelect.options:', cameraSelect?.options);
-        
-        const selectedCameraAlias = cameraSelect?.value || null;
-        const cameraInfo = selectedCameraAlias ? {
-            alias: selectedCameraAlias,
-            id: cameraSelect.querySelector(`option[value="${selectedCameraAlias}"]`)?.dataset.cameraId,
-            description: cameraSelect.querySelector(`option[value="${selectedCameraAlias}"]`)?.textContent
-        } : null;
+        // Get camera selection from CameraSelector component
+        const cameraInfo = this.cameraSelector?.getSelectedCamera();
+        const selectedCameraAlias = cameraInfo?.alias || null;
         
         const datetimeValues = this.dateTimePicker?.getValues();
         const multiplier = this.multiplierSelector?.getValue();
@@ -474,40 +465,6 @@ class ExacqManApp {
         select.disabled = false;
     }
 
-    /**
-     * Populate camera select
-     */
-    populateCameraSelect(cameras) {
-        const select = document.getElementById('camera-select');
-        if (!select) {
-            console.error('Camera select element not found!');
-            return;
-        }
-        
-        // Preserve current selection
-        const currentValue = select.value;
-        console.log('Populating camera select with', cameras.length, 'cameras, preserving value:', currentValue);
-        
-        select.innerHTML = '<option value="">Select camera...</option>';
-        cameras.forEach(camera => {
-            const option = document.createElement('option');
-            option.value = camera.alias;
-            option.textContent = camera.description || camera.alias;
-            option.dataset.cameraId = camera.id;  // Add camera ID for reference
-            select.appendChild(option);
-        });
-        select.disabled = cameras.length === 0;
-        
-        // Restore selection if it was valid
-        if (currentValue && cameras.some(camera => camera.alias === currentValue)) {
-            select.value = currentValue;
-            console.log('Restored camera selection to:', currentValue);
-        }
-        
-        console.log('Camera select populated. Options count:', select.options.length);
-        console.log('Camera select disabled:', select.disabled);
-        console.log('Camera select value:', select.value);
-    }
 
     /**
      * Populate server select
