@@ -117,10 +117,10 @@ class ExacqManService:
             request: ExtractRequest object
             
         Returns:
-            Generated filename
+            Generated filename (without .mp4 extension, as exacqman.py adds it automatically)
         """
         date_str = request.start_datetime.strftime("%Y-%m-%d")
-        return f"{date_str}_{request.camera_alias}_{request.timelapse_multiplier}x.mp4"
+        return f"{date_str}_{request.camera_alias}_{request.timelapse_multiplier}x"
     
     async def _cleanup_intermediate_files(self):
         """
@@ -160,7 +160,7 @@ class ExacqManService:
         Move the final output file to the exports directory.
         
         Args:
-            filename: Name of the file to move
+            filename: Base name of the file to move (exacqman.py may create variations)
             
         Returns:
             Path to the file in exports directory
@@ -170,20 +170,27 @@ class ExacqManService:
             exports_dir = self.working_directory / "exacqman-web" / "exports"
             exports_dir.mkdir(parents=True, exist_ok=True)
             
-            # Look for the file in the working directory
-            source_path = self.working_directory / filename
-            if not source_path.exists():
-                # Try with .mp4 extension if not found
-                source_path = self.working_directory / f"{filename}.mp4"
+            # Look for the final compressed file (exacqman.py creates libx264_high version)
+            base_name = filename.replace('.mp4', '')  # Remove .mp4 if present
+            final_filename = f"{base_name}_libx264_high.mp4"
+            source_path = self.working_directory / final_filename
             
             if not source_path.exists():
-                raise FileNotFoundError(f"Output file not found: {filename}")
+                # Fallback to original filename
+                source_path = self.working_directory / filename
+                if not source_path.exists():
+                    # Try with .mp4 extension if not found
+                    source_path = self.working_directory / f"{filename}.mp4"
             
-            # Move to exports directory
-            dest_path = exports_dir / source_path.name
+            if not source_path.exists():
+                raise FileNotFoundError(f"Output file not found: {filename} (tried {final_filename}, {filename}, {filename}.mp4)")
+            
+            # Move to exports directory with clean filename
+            clean_filename = f"{base_name}.mp4"
+            dest_path = exports_dir / clean_filename
             shutil.move(str(source_path), str(dest_path))
             
-            logger.info(f"Moved {source_path.name} to exports directory")
+            logger.info(f"Moved {source_path.name} to exports directory as {clean_filename}")
             return str(dest_path)
             
         except Exception as e:
