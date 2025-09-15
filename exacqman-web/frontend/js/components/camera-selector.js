@@ -200,7 +200,17 @@ class CameraSelector {
         this.selectElement.disabled = isLoading || !this.state.get('cameras').length;
         
         if (isLoading) {
+            // Preserve current selection when showing loading state
+            const currentValue = this.selectElement.value;
             this.selectElement.innerHTML = '<option value="">Loading cameras...</option>';
+            if (currentValue) {
+                // Add the current selection back as a temporary option
+                const option = document.createElement('option');
+                option.value = currentValue;
+                option.textContent = `Camera ${currentValue}`;
+                option.selected = true;
+                this.selectElement.appendChild(option);
+            }
         }
     }
 
