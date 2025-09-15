@@ -137,7 +137,8 @@ class FileBrowser {
         // Listen for job completion to auto-refresh
         this.state.subscribe('activeJobs', (jobs) => {
             // Check if any jobs just completed
-            const completedJobs = jobs.filter(job => job.status === 'completed');
+            const jobsArray = Array.from(jobs.values());
+            const completedJobs = jobsArray.filter(job => job.status === 'completed');
             if (completedJobs.length > 0) {
                 // Auto-refresh after a short delay
                 setTimeout(() => this.loadFiles(), 2000);
