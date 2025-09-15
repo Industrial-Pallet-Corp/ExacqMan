@@ -616,7 +616,5 @@ class FileBrowser {
     }
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = FileBrowser;
-}
+// Export for ES6 module usage
+export default FileBrowser;

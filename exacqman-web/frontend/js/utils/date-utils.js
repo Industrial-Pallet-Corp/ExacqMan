@@ -184,7 +184,5 @@ class DateUtils {
     }
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = DateUtils;
-}
+// Export for ES6 module usage
+export default DateUtils;

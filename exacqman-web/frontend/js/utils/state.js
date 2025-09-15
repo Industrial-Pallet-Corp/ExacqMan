@@ -369,7 +369,5 @@ class AppState {
     }
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = AppState;
-}
+// Export for ES6 module usage
+export default AppState;

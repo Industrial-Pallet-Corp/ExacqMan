@@ -406,7 +406,5 @@ class JobPoller {
     }
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = JobStatus;
-}
+// Export for ES6 module usage
+export default JobStatus;

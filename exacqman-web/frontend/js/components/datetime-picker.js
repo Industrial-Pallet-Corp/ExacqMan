@@ -368,7 +368,5 @@ class DateTimePicker {
     }
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = DateTimePicker;
-}
+// Export for ES6 module usage
+export default DateTimePicker;

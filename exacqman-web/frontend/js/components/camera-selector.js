@@ -246,7 +246,5 @@ class CameraSelector {
     }
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = CameraSelector;
-}
+// Export for ES6 module usage
+export default CameraSelector;

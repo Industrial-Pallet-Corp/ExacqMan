@@ -299,7 +299,5 @@ class ValidationUtils {
     }
 }
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ValidationUtils;
-}
+// Export for ES6 module usage
+export default ValidationUtils;
