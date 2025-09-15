@@ -41,8 +41,8 @@ class ExacqManService:
         try:
             # Convert datetime objects to the format expected by ExacqMan CLI
             start_date = request.start_datetime.strftime("%m/%d")
-            start_time = request.start_datetime.strftime("%I:%M %p").lstrip('0')
-            end_time = request.end_datetime.strftime("%I:%M %p").lstrip('0')
+            start_time = request.start_datetime.strftime("%I:%M%p").lstrip('0')
+            end_time = request.end_datetime.strftime("%I:%M%p").lstrip('0')
             
             # Generate output filename
             output_filename = self._generate_output_filename(request)
