@@ -18,6 +18,7 @@ class CameraSelector {
      * Initialize the camera selector
      */
     init() {
+        console.log('CameraSelector init - selectElement:', this.selectElement);
         if (!this.selectElement) {
             console.warn('Camera selector element not found');
             return;
@@ -25,6 +26,7 @@ class CameraSelector {
 
         this.setupEventListeners();
         this.setupStateListeners();
+        console.log('CameraSelector initialized successfully');
     }
 
     /**
@@ -107,6 +109,10 @@ class CameraSelector {
     updateCameraList(cameras) {
         if (!this.selectElement) return;
 
+        // Preserve current selection
+        const currentValue = this.selectElement.value;
+        console.log('CameraSelector updateCameraList - preserving value:', currentValue);
+
         // Clear existing options
         this.selectElement.innerHTML = '<option value="">Select camera...</option>';
         
@@ -126,6 +132,13 @@ class CameraSelector {
         });
 
         this.selectElement.disabled = false;
+        
+        // Restore selection if it was valid
+        if (currentValue && cameras.some(camera => camera.alias === currentValue)) {
+            this.selectElement.value = currentValue;
+            console.log('CameraSelector updateCameraList - restored value:', currentValue);
+        }
+        
         this.clearError();
     }
 
@@ -223,17 +236,33 @@ class CameraSelector {
      * Get selected camera information
      */
     getSelectedCamera() {
+        console.log('CameraSelector getSelectedCamera - selectElement:', this.selectElement);
+        if (!this.selectElement) {
+            console.log('CameraSelector getSelectedCamera - no selectElement');
+            return null;
+        }
+        
         const selectedValue = this.selectElement.value;
-        if (!selectedValue) return null;
+        console.log('CameraSelector getSelectedCamera - selectedValue:', selectedValue);
+        if (!selectedValue) {
+            console.log('CameraSelector getSelectedCamera - no selectedValue');
+            return null;
+        }
 
         const selectedOption = this.selectElement.querySelector(`option[value="${selectedValue}"]`);
-        if (!selectedOption) return null;
+        console.log('CameraSelector getSelectedCamera - selectedOption:', selectedOption);
+        if (!selectedOption) {
+            console.log('CameraSelector getSelectedCamera - no selectedOption');
+            return null;
+        }
 
-        return {
+        const result = {
             alias: selectedValue,
             id: selectedOption.dataset.cameraId,
             description: selectedOption.textContent
         };
+        console.log('CameraSelector getSelectedCamera - result:', result);
+        return result;
     }
 
     /**
