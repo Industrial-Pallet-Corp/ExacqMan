@@ -93,13 +93,6 @@ class ApiResponse(BaseModel):
     data: Optional[Dict[str, Any]] = Field(None, description="Response data")
     error: Optional[str] = Field(None, description="Error message if failed")
 
-class ConfigInfo(BaseModel):
-    """Configuration information model."""
-    config_file: str = Field(..., description="Path to config file")
-    servers: Dict[str, str] = Field(..., description="Available servers")
-    cameras: Dict[str, str] = Field(..., description="Available cameras")
-    settings: Dict[str, Any] = Field(..., description="Configuration settings")
-
 class UploadResponse(BaseModel):
     """File upload response model."""
     filename: str = Field(..., description="Uploaded file name")
