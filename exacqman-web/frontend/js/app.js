@@ -283,7 +283,7 @@ class ExacqManApp {
                 
                 this.showSuccess('Video extraction started successfully');
                 
-                // Reset form
+                // Reset form AFTER successful submission
                 this.resetExtractionForm();
                 
             } else {
@@ -378,6 +378,10 @@ class ExacqManApp {
         
         // Get camera selection directly from DOM instead of relying on component
         const cameraSelect = document.getElementById('camera-select');
+        console.log('getFormData - cameraSelect element:', cameraSelect);
+        console.log('getFormData - cameraSelect.value:', cameraSelect?.value);
+        console.log('getFormData - cameraSelect.options:', cameraSelect?.options);
+        
         const selectedCameraAlias = cameraSelect?.value || null;
         const cameraInfo = selectedCameraAlias ? {
             alias: selectedCameraAlias,
