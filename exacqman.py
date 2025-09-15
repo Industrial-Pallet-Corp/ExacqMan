@@ -47,9 +47,38 @@ class Settings:
     def from_args_and_config(cls, args: argparse.Namespace, config: ConfigParser = ConfigParser()) -> 'Settings':
         """Merge argparse, config file, and defaults in that priority."""
         
-        def set_value(arg_value = None, config_value = None, cls_value = None):
-            ''' Sets correct value for each variable respecting priority: argParse > configParser > defaults '''
-            return getattr(args, arg_value, None) or config_value or cls_value if arg_value else (config_value or cls_value) # Skip the arg check if there is no arg_value (otherwise it crashes with a TypeError)
+        def set_value(arg_value = None, config_value = None, cls_value = None, required = False):
+            """
+            Sets correct value respecting priority: command-line args > [Runtime] config > defaults
+            Args:
+                arg_value: Name of command-line argument
+                config_value: Value from [Runtime] config section  
+                cls_value: Default value from class
+                required: If True, raise error if no value found
+            """
+            # First priority: command-line argument
+            if arg_value:
+                arg_val = getattr(args, arg_value, None)
+                if arg_val is not None and str(arg_val).strip():
+                    return arg_val
+            
+            # Second priority: [Runtime] config value (only if not empty)
+            if config_value is not None and str(config_value).strip():
+                return config_value
+            
+            # Third priority: class default
+            if cls_value is not None:
+                return cls_value
+            
+            # Required parameter missing
+            if required:
+                raise ValueError(f"Required parameter {arg_value or 'config'} is missing")
+            
+            return None
+
+        # Calculate server and camera_alias first for use in server_ip and camera_id
+        server = set_value(arg_value='server', config_value=config.get('Runtime', 'server', fallback='') if config.has_section('Runtime') else None, cls_value=cls.server)
+        camera_alias = set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback='') if config.has_section('Runtime') else None, cls_value=cls.camera_alias)
 
         # Build settings with priority: args > config > default
         return cls(
@@ -65,15 +94,15 @@ class Settings:
             crop_dimensions=literal_eval(config.get('Settings','crop_dimensions',fallback='')) if config.get('Settings', 'crop_dimensions', fallback='') else None,
             font_weight=int(set_value(config_value=config.get('Settings','font_weight',fallback=''), cls_value=cls.font_weight)),
 
-            server=set_value(arg_value='server', config_value=config.get('Runtime', 'server', fallback=''), cls_value=cls.server),
-            server_ip=config['Network'].get(set_value(arg_value='server', config_value=config['Runtime']['server'])) if 'Network' in config else None,
-            camera_alias=set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback=''), cls_value=cls.camera_alias),
-            camera_id=config['Cameras'].get(set_value(arg_value='camera_alias', config_value=config['Runtime']['camera_alias'])) if 'Cameras' in config else None,
+            server=server,
+            server_ip=config['Network'].get(server) if 'Network' in config and server else None,
+            camera_alias=camera_alias,
+            camera_id=config['Cameras'].get(camera_alias) if 'Cameras' in config and camera_alias else None,
             input_filename=set_value(arg_value='video_filename', cls_value=cls.input_filename),
-            output_filename=set_value(arg_value='output_name', config_value=config.get('Runtime','filename',fallback=''), cls_value=cls.output_filename),
-            date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback=''), cls_value=cls.date),
-            start_time=set_value(arg_value='start', config_value=config.get('Runtime','start_time',fallback=''), cls_value=cls.start_time),
-            end_time=set_value(arg_value='end', config_value=config.get('Runtime','end_time',fallback=''), cls_value=cls.end_time)
+            output_filename=set_value(arg_value='output_name', config_value=config.get('Runtime','filename',fallback='') if config.has_section('Runtime') else None, cls_value=cls.output_filename),
+            date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback='') if config.has_section('Runtime') else None, cls_value=cls.date),
+            start_time=set_value(arg_value='start', config_value=config.get('Runtime','start_time',fallback='') if config.has_section('Runtime') else None, cls_value=cls.start_time),
+            end_time=set_value(arg_value='end', config_value=config.get('Runtime','end_time',fallback='') if config.has_section('Runtime') else None, cls_value=cls.end_time)
         )
 
 
