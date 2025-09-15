@@ -11,6 +11,7 @@ import CameraSelector from './components/camera-selector.js';
 import DateTimePicker from './components/datetime-picker.js';
 import MultiplierSelector from './components/multiplier-selector.js';
 import JobStatus from './components/job-status.js';
+import FileBrowser from './components/file-browser.js';
 
 class ExacqManApp {
     constructor() {
@@ -24,6 +25,7 @@ class ExacqManApp {
         this.dateTimePicker = null;
         this.multiplierSelector = null;
         this.jobStatus = null;
+        this.fileBrowser = null;
         
         // Bind methods to preserve context
         this.handleConfigChange = this.handleConfigChange.bind(this);
@@ -75,6 +77,7 @@ class ExacqManApp {
         this.dateTimePicker = new DateTimePicker(this.state);
         this.multiplierSelector = new MultiplierSelector(this.state);
         this.jobStatus = new JobStatus(this.api, this.state);
+        this.fileBrowser = new FileBrowser(this.api, this.state);
     }
 
     /**
@@ -290,7 +293,11 @@ class ExacqManApp {
      * Handle file refresh
      */
     async handleFileRefresh() {
-        await this.loadProcessedVideos();
+        if (this.fileBrowser) {
+            this.fileBrowser.loadFiles();
+        } else {
+            await this.loadProcessedVideos();
+        }
     }
 
     /**
