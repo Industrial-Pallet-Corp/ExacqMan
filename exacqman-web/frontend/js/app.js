@@ -359,6 +359,14 @@ class ExacqManApp {
         const datetimeValid = this.dateTimePicker?.validateBoth();
         const multiplierValid = this.multiplierSelector?.validateSelection();
         
+        console.log('Form validation:', {
+            configValid,
+            cameraValid,
+            datetimeValid,
+            multiplierValid,
+            cameraSelectValue: document.getElementById('camera-select')?.value
+        });
+        
         return configValid && cameraValid && datetimeValid && multiplierValid;
     }
 
