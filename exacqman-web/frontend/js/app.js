@@ -484,7 +484,10 @@ class ExacqManApp {
             return;
         }
         
-        console.log('Populating camera select with', cameras.length, 'cameras');
+        // Preserve current selection
+        const currentValue = select.value;
+        console.log('Populating camera select with', cameras.length, 'cameras, preserving value:', currentValue);
+        
         select.innerHTML = '<option value="">Select camera...</option>';
         cameras.forEach(camera => {
             const option = document.createElement('option');
@@ -494,6 +497,13 @@ class ExacqManApp {
             select.appendChild(option);
         });
         select.disabled = cameras.length === 0;
+        
+        // Restore selection if it was valid
+        if (currentValue && cameras.some(camera => camera.alias === currentValue)) {
+            select.value = currentValue;
+            console.log('Restored camera selection to:', currentValue);
+        }
+        
         console.log('Camera select populated. Options count:', select.options.length);
         console.log('Camera select disabled:', select.disabled);
         console.log('Camera select value:', select.value);
