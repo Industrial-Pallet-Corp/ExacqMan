@@ -7,6 +7,7 @@
 
 import { ExacqManAPI, APIError } from './api.js';
 import AppState from './utils/state.js';
+import ValidationUtils from './utils/validation.js';
 import CameraSelector from './components/camera-selector.js';
 import DateTimePicker from './components/datetime-picker.js';
 import MultiplierSelector from './components/multiplier-selector.js';
@@ -381,11 +382,11 @@ class ExacqManApp {
         
         const selectedServer = serverSelect.value;
         if (!selectedServer || selectedServer.trim() === '') {
-            this.showFieldError(serverSelect, 'Please select a server');
+            ValidationUtils.showFieldError(serverSelect, 'Please select a server');
             return false;
         }
         
-        this.clearFieldError(serverSelect);
+        ValidationUtils.clearFieldError(serverSelect);
         return true;
     }
 
