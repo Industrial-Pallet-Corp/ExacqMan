@@ -1,0 +1,161 @@
+# ExacqMan Project Rules
+
+## Project Overview
+ExacqMan is a Python video processing tool for extracting, timelapsing, and compressing surveillance videos from Exacqvision systems. The project includes both CLI and web interface components.
+
+## Code Style & Standards
+
+### Python Style
+- Follow PEP 8 conventions strictly
+- Use type hints for all function parameters and return values
+- Use dataclasses for configuration objects
+- Prefer descriptive variable names over abbreviations
+- Use snake_case for functions/variables, PascalCase for classes
+- Maximum line length: 88 characters (Black formatter standard)
+- Use f-strings for string formatting
+
+### Documentation
+- Write comprehensive docstrings for all functions and classes
+- Use Google-style docstrings with Args, Returns, and Raises sections
+- Include examples in docstrings when helpful
+- Document complex algorithms and business logic
+
+### Error Handling
+- Use custom exception classes for domain-specific errors
+- Always handle API failures gracefully with meaningful error messages
+- Use try-except blocks for external API calls
+- Log errors with context information using structured logging
+
+## Architecture Patterns
+
+### Core Application (exacqman.py, exacqvision.py)
+- Keep core files unchanged - all new features go in exacqman-web/
+- Use ConfigParser for configuration files
+- Implement validation for all configuration values
+- Support command-line argument overrides
+- Priority order: CLI args > config file > defaults
+
+### Web Application (exacqman-web/)
+- Use FastAPI for REST API endpoints
+- Implement async/await for I/O operations
+- Use Pydantic models for request/response validation
+- Separate concerns: API routes, services, models
+- Use dependency injection for services
+
+### Video Processing
+- Separate concerns: extraction, processing, compression
+- Use OpenCV for video manipulation
+- Implement progress tracking for long operations
+- Support different output formats and qualities
+- Use efficient video codecs (libx264 for compression)
+
+## File Organization
+
+### Core Files (Root Level)
+- `exacqman.py`: Main CLI application (DO NOT MODIFY)
+- `exacqvision.py`: Exacqvision API integration (DO NOT MODIFY)
+- `requirements.txt`: Core Python dependencies
+- `*.config`: Configuration files for different environments
+
+### Web Application (exacqman-web/)
+- `backend/`: FastAPI backend server
+- `frontend/`: Web interface (future)
+- `uploads/`: User uploaded files
+- `exports/`: Processed video outputs
+
+### Dependencies
+- Use specific version pinning in requirements.txt
+- Prefer stable, well-maintained libraries
+- Keep dependencies minimal and focused
+- Separate requirements for web vs core application
+
+## API Design
+
+### REST API Endpoints
+- Use RESTful conventions for endpoint design
+- Implement proper HTTP status codes
+- Use async/await for all endpoints
+- Implement proper error handling and validation
+- Support background job processing for long operations
+
+### Command Line Interface
+- Use argparse with subcommands for different operations
+- Support both positional and optional arguments
+- Provide helpful error messages and usage examples
+- Validate input parameters before processing
+
+## Security & Performance
+
+### Security
+- Store credentials in configuration files, not in code
+- Use environment variables for sensitive data
+- Never commit credentials to version control
+- Validate file paths to prevent directory traversal
+- Implement proper CORS settings for web API
+
+### Performance
+- Use context managers for file operations
+- Release video resources promptly
+- Implement streaming for large file downloads
+- Use progress indicators for user feedback
+- Monitor memory usage during processing
+
+## Development Workflow
+
+### Version Control
+- Use meaningful commit messages following conventional commits
+- Keep commits focused and atomic
+- Test changes before committing
+- Use feature branches for new development
+- Never modify core files (exacqman.py, exacqvision.py)
+
+### Code Quality
+- Write self-documenting code with clear variable names
+- Break complex functions into smaller, focused functions
+- Use consistent error handling patterns
+- Implement proper logging throughout the application
+- Use type hints and run mypy for type checking
+
+### Testing
+- Write unit tests for business logic
+- Test API endpoints with proper test data
+- Validate error handling paths
+- Test file upload/download functionality
+- Test video processing operations
+
+## Environment Setup
+
+### Virtual Environment
+- Always use a virtual environment for development
+- Pin dependency versions in requirements.txt
+- Document setup instructions in README
+- Test in clean environments
+
+### Configuration
+- Provide example configuration files
+- Document all configuration options
+- Support multiple environment configurations
+- Validate configurations on startup
+
+## Web Application Specific
+
+### Backend (FastAPI)
+- Use dependency injection for services
+- Implement proper error handling middleware
+- Use background tasks for long operations
+- Implement proper logging and monitoring
+- Use Pydantic for data validation
+
+### Frontend (Future)
+- Use modern JavaScript/TypeScript
+- Implement responsive design
+- Use proper state management
+- Implement proper error handling
+- Use modern CSS frameworks
+
+### File Management
+- Implement proper file upload validation
+- Use secure file storage
+- Implement file cleanup policies
+- Support multiple file formats
+- Implement proper file permissions
