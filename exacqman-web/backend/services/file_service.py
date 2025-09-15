@@ -20,6 +20,7 @@ class FileService:
     
     def __init__(self):
         """Initialize the file service."""
+        # exports directory is at the same level as backend directory
         self.exports_dir = Path("../exports")
         self.allowed_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv'}
         
