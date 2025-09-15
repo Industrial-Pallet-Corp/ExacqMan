@@ -206,6 +206,7 @@ class ExacqManApp {
      */
     async handleConfigChange(event) {
         const configFile = event.target.value;
+        console.log('Config changed to:', configFile);
         
         if (!configFile) {
             this.state.updateCameras([]);
@@ -220,17 +221,24 @@ class ExacqManApp {
             this.state.setLoading(true);
             this.state.setCurrentConfig(configFile);
             
+            console.log('Loading cameras and config for:', configFile);
+            
             // Load cameras and servers for selected config
             const [cameras, configInfo] = await Promise.all([
                 this.api.getCameras(configFile),
                 this.api.getConfigInfo(configFile)
             ]);
             
+            console.log('Loaded cameras:', cameras);
+            console.log('Loaded config info:', configInfo);
+            
             this.state.updateCameras(cameras);
             this.state.updateServers(configInfo.servers || {});
             
             this.populateCameraSelect(cameras);
             this.populateServerSelect(configInfo.servers || {});
+            
+            console.log('Camera select populated with', cameras.length, 'cameras');
             
         } catch (error) {
             console.error('Failed to load configuration:', error);
@@ -449,8 +457,12 @@ class ExacqManApp {
      */
     populateCameraSelect(cameras) {
         const select = document.getElementById('camera-select');
-        if (!select) return;
+        if (!select) {
+            console.error('Camera select element not found!');
+            return;
+        }
         
+        console.log('Populating camera select with', cameras.length, 'cameras');
         select.innerHTML = '<option value="">Select camera...</option>';
         cameras.forEach(camera => {
             const option = document.createElement('option');
@@ -459,6 +471,7 @@ class ExacqManApp {
             select.appendChild(option);
         });
         select.disabled = cameras.length === 0;
+        console.log('Camera select populated. Options count:', select.options.length);
     }
 
     /**
