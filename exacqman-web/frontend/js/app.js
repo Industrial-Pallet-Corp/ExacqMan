@@ -256,6 +256,7 @@ class ExacqManApp {
             
             // Get form data from components
             const formData = this.getFormData();
+            console.log('Form data being sent:', formData);
             
             // Submit extraction request
             const response = await this.api.extractVideo(formData);
@@ -362,6 +363,14 @@ class ExacqManApp {
         const datetimeValues = this.dateTimePicker?.getValues();
         const multiplier = this.multiplierSelector?.getValue();
         const server = document.getElementById('server-select')?.value || null;
+
+        console.log('Form data components:', {
+            configFile,
+            cameraInfo,
+            datetimeValues,
+            multiplier,
+            server
+        });
 
         return {
             camera_alias: cameraInfo?.alias,
