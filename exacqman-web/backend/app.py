@@ -45,6 +45,9 @@ app.add_middleware(
 # Mount static files for serving processed videos
 app.mount("/exports", StaticFiles(directory="exports"), name="exports")
 
+# Mount frontend files
+app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
+
 # Include API routes
 app.include_router(router, prefix="/api")
 
@@ -89,6 +92,11 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.get("/api/health")
+async def api_health_check():
+    """API health check endpoint."""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 if __name__ == "__main__":
