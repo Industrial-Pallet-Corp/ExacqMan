@@ -367,7 +367,16 @@ class ExacqManApp {
      */
     getFormData() {
         const configFile = this.state.get('currentConfig');
-        const cameraInfo = this.cameraSelector?.getSelectedCamera();
+        
+        // Get camera selection directly from DOM instead of relying on component
+        const cameraSelect = document.getElementById('camera-select');
+        const selectedCameraAlias = cameraSelect?.value || null;
+        const cameraInfo = selectedCameraAlias ? {
+            alias: selectedCameraAlias,
+            id: cameraSelect.querySelector(`option[value="${selectedCameraAlias}"]`)?.dataset.cameraId,
+            description: cameraSelect.querySelector(`option[value="${selectedCameraAlias}"]`)?.textContent
+        } : null;
+        
         const datetimeValues = this.dateTimePicker?.getValues();
         const multiplier = this.multiplierSelector?.getValue();
         const server = document.getElementById('server-select')?.value || null;
@@ -375,18 +384,19 @@ class ExacqManApp {
         console.log('Form data components:', {
             configFile,
             cameraInfo,
+            selectedCameraAlias,
             datetimeValues,
             multiplier,
             server
         });
 
         return {
-            camera_alias: cameraInfo?.alias,
+            camera_alias: selectedCameraAlias || null,  // Convert undefined to null
             start_datetime: datetimeValues?.start_datetime,
             end_datetime: datetimeValues?.end_datetime,
             timelapse_multiplier: multiplier,
             config_file: configFile,
-            server: server
+            server: server || null  // Convert undefined to null
         };
     }
 
@@ -468,10 +478,13 @@ class ExacqManApp {
             const option = document.createElement('option');
             option.value = camera.alias;
             option.textContent = camera.description || camera.alias;
+            option.dataset.cameraId = camera.id;  // Add camera ID for reference
             select.appendChild(option);
         });
         select.disabled = cameras.length === 0;
         console.log('Camera select populated. Options count:', select.options.length);
+        console.log('Camera select disabled:', select.disabled);
+        console.log('Camera select value:', select.value);
     }
 
     /**
