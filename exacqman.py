@@ -200,10 +200,12 @@ def validate_config(config: ConfigParser) -> bool:
             errors.append('font_weight must be a postive integer')
             fatal = True
 
-    server = config['Runtime']['server']
-    if server not in config['Network']:
-        errors.append(f'Server {server} not found in the Network list')
-        fatal = True
+    # Only validate Runtime section if it exists
+    if config.has_section('Runtime') and 'server' in config['Runtime']:
+        server = config['Runtime']['server']
+        if server not in config['Network']:
+            errors.append(f'Server {server} not found in the Network list')
+            fatal = True
 
     for camera_number, camera_value in config['Cameras'].items():
         if not camera_value.strip():

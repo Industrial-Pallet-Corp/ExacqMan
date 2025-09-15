@@ -227,6 +227,12 @@ label {
     display: block;
 }
 
+/* Required field indicator */
+.required {
+    color: var(--error-color);
+    font-weight: bold;
+}
+
 /* Button Styles */
 .btn {
     display: inline-flex;

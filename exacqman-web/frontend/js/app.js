@@ -358,16 +358,35 @@ class ExacqManApp {
         const cameraValid = this.cameraSelector?.validateSelection();
         const datetimeValid = this.dateTimePicker?.validateBoth();
         const multiplierValid = this.multiplierSelector?.validateSelection();
+        const serverValid = this.validateServerSelection();
         
         console.log('Form validation:', {
             configValid,
             cameraValid,
             datetimeValid,
             multiplierValid,
+            serverValid,
             cameraSelectValue: this.cameraSelector?.getSelectedCamera()?.alias
         });
         
-        return configValid && cameraValid && datetimeValid && multiplierValid;
+        return configValid && cameraValid && datetimeValid && multiplierValid && serverValid;
+    }
+
+    /**
+     * Validate server selection
+     */
+    validateServerSelection() {
+        const serverSelect = document.getElementById('server-select');
+        if (!serverSelect) return false;
+        
+        const selectedServer = serverSelect.value;
+        if (!selectedServer || selectedServer.trim() === '') {
+            this.showFieldError(serverSelect, 'Please select a server');
+            return false;
+        }
+        
+        this.clearFieldError(serverSelect);
+        return true;
     }
 
     /**
@@ -382,7 +401,7 @@ class ExacqManApp {
         
         const datetimeValues = this.dateTimePicker?.getValues();
         const multiplier = this.multiplierSelector?.getValue();
-        const server = document.getElementById('server-select')?.value || null;
+        const server = document.getElementById('server-select')?.value;
 
         console.log('Form data components:', {
             configFile,
@@ -399,7 +418,7 @@ class ExacqManApp {
             end_datetime: datetimeValues?.end_datetime,
             timelapse_multiplier: multiplier,
             config_file: configFile,
-            server: server || null  // Convert undefined to null
+            server: server  // Server is now required, so no fallback to null
         };
     }
 
@@ -473,7 +492,7 @@ class ExacqManApp {
         const select = document.getElementById('server-select');
         if (!select) return;
         
-        select.innerHTML = '<option value="">Auto-detect</option>';
+        select.innerHTML = '<option value="">Select server...</option>';
         Object.entries(servers).forEach(([name, ip]) => {
             const option = document.createElement('option');
             option.value = name;
