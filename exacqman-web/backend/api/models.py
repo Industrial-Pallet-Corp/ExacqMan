@@ -5,7 +5,7 @@ Defines Pydantic models for request/response validation and serialization.
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from datetime import datetime
 from enum import Enum
 
@@ -25,8 +25,8 @@ class JobStatusEnum(str, Enum):
 class ExtractRequest(BaseModel):
     """Request model for video extraction."""
     camera_alias: str = Field(..., description="Camera alias from config")
-    start_datetime: datetime = Field(..., description="Start datetime for video extraction")
-    end_datetime: datetime = Field(..., description="End datetime for video extraction")
+    start_datetime: Union[datetime, str] = Field(..., description="Start datetime for video extraction")
+    end_datetime: Union[datetime, str] = Field(..., description="End datetime for video extraction")
     timelapse_multiplier: int = Field(10, description="Timelapse multiplier (2-50)")
     config_file: str = Field(..., description="Path to config file")
     server: Optional[str] = Field(None, description="Server location initials")
@@ -35,6 +35,24 @@ class ExtractRequest(BaseModel):
     def validate_multiplier(cls, v):
         if not (2 <= v <= 50):
             raise ValueError('Timelapse multiplier must be between 2 and 50')
+        return v
+    
+    @validator('start_datetime', pre=True)
+    def parse_start_datetime(cls, v):
+        if isinstance(v, str):
+            try:
+                return datetime.fromisoformat(v.replace('Z', '+00:00'))
+            except ValueError:
+                raise ValueError('Invalid start datetime format. Use ISO format (YYYY-MM-DDTHH:MM)')
+        return v
+    
+    @validator('end_datetime', pre=True)
+    def parse_end_datetime(cls, v):
+        if isinstance(v, str):
+            try:
+                return datetime.fromisoformat(v.replace('Z', '+00:00'))
+            except ValueError:
+                raise ValueError('Invalid end datetime format. Use ISO format (YYYY-MM-DDTHH:MM)')
         return v
     
     @validator('end_datetime')
