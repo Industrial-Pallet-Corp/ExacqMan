@@ -202,6 +202,17 @@ class FileBrowser {
         }
 
         this.filteredFiles = filtered;
+        
+        // Clean up selectedFiles to only include files that are currently visible
+        const visibleFilenames = new Set(filtered.map(file => file.filename));
+        const newSelectedFiles = new Set();
+        for (const filename of this.selectedFiles) {
+            if (visibleFilenames.has(filename)) {
+                newSelectedFiles.add(filename);
+            }
+        }
+        this.selectedFiles = newSelectedFiles;
+        
         this.sortFiles();
         this.updateDisplay();
     }
@@ -336,6 +347,9 @@ class FileBrowser {
         // Set up event listeners for new elements
         this.setupTableEventListeners();
         this.updateSortIndicators();
+        
+        // Update selection display to sync checkbox states
+        this.updateSelectionDisplay();
     }
 
     /**
