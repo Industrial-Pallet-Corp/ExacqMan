@@ -291,6 +291,11 @@ class FileBrowser {
         
         // Update selection display to sync checkbox states
         this.updateSelectionDisplay();
+        
+        // Reset all aria-expanded states to false for new items
+        document.querySelectorAll('.file-item').forEach(item => {
+            item.setAttribute('aria-expanded', 'false');
+        });
     }
 
     /**
@@ -367,6 +372,11 @@ class FileBrowser {
 
         // File item click handlers for expand/collapse (entire row except checkbox)
         document.querySelectorAll('.file-item').forEach(fileItem => {
+            // Make file items focusable for keyboard navigation
+            fileItem.setAttribute('tabindex', '0');
+            fileItem.setAttribute('role', 'button');
+            fileItem.setAttribute('aria-expanded', 'false');
+            
             fileItem.addEventListener('click', (e) => {
                 // Don't trigger if clicking on checkbox or action buttons
                 if (e.target.classList.contains('file-checkbox-input') || 
@@ -379,11 +389,21 @@ class FileBrowser {
                 const filename = fileItem.dataset.filename;
                 this.toggleFileExpansion(filename);
             });
+            
+            // Keyboard support
+            fileItem.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    const filename = fileItem.dataset.filename;
+                    this.toggleFileExpansion(filename);
+                }
+            });
         });
 
         // Download buttons
         document.querySelectorAll('.download-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent row expansion
                 const filename = e.target.dataset.filename;
                 this.handleDownload(filename);
             });
@@ -392,6 +412,7 @@ class FileBrowser {
         // Delete buttons
         document.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent row expansion
                 const filename = e.target.dataset.filename;
                 this.handleDelete(filename);
             });
@@ -424,8 +445,10 @@ class FileBrowser {
         
         if (isExpanded) {
             expandedSection.style.display = 'none';
+            fileItem.setAttribute('aria-expanded', 'false');
         } else {
             expandedSection.style.display = 'block';
+            fileItem.setAttribute('aria-expanded', 'true');
         }
     }
 
