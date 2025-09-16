@@ -205,7 +205,7 @@ class ExacqManApp {
             this.state.updateServers({});
             this.state.setCurrentConfig(null);
             // CameraSelector component will handle camera dropdown via state subscription
-            this.populateServerSelect({});
+            this.clearServerSelection();
             return;
         }
 
@@ -503,7 +503,7 @@ class ExacqManApp {
         // Auto-select if only one configuration
         if (configs.length === 1) {
             select.value = configs[0].path;
-            this.handleConfigChange(configs[0].path);
+            this.handleConfigChange({ target: { value: configs[0].path } });
             console.log('Auto-selected configuration:', configs[0].name);
         }
     }
@@ -527,12 +527,25 @@ class ExacqManApp {
         });
         
         select.disabled = serverEntries.length === 0;
+        select.required = serverEntries.length > 0;
         
         // Auto-select if only one server
         if (serverEntries.length === 1) {
             select.value = serverEntries[0][0];
             console.log('Auto-selected server:', serverEntries[0][0]);
         }
+    }
+
+    /**
+     * Clear server selection
+     */
+    clearServerSelection() {
+        const select = document.getElementById('server-select');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Waiting for configuration...</option>';
+        select.disabled = true;
+        select.required = false;
     }
 
     /**

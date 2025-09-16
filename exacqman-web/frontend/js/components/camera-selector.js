@@ -155,7 +155,7 @@ class CameraSelector {
     clearCameras() {
         if (!this.selectElement) return;
 
-        this.selectElement.innerHTML = '<option value="">Select configuration first</option>';
+        this.selectElement.innerHTML = '<option value="">Waiting for configuration...</option>';
         this.selectElement.disabled = true;
         this.selectElement.required = false;
         this.state.set('selectedCamera', null);
@@ -209,7 +209,7 @@ class CameraSelector {
         if (isLoading) {
             // Preserve current selection when showing loading state
             const currentValue = this.selectElement.value;
-            this.selectElement.innerHTML = '<option value="">Loading cameras...</option>';
+            this.selectElement.innerHTML = '<option value="">Waiting for configuration...</option>';
             if (currentValue) {
                 // Add the current selection back as a temporary option
                 const option = document.createElement('option');
