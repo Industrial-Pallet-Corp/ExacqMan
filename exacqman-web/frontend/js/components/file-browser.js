@@ -522,6 +522,22 @@ class FileBrowser {
                 selectAllCheckbox.indeterminate = true;
             }
         }
+        
+        // Update individual file checkboxes
+        document.querySelectorAll('.file-table-row:not(.file-table-header-row) .file-checkbox-input[data-filename]').forEach(checkbox => {
+            const filename = checkbox.dataset.filename;
+            checkbox.checked = this.selectedFiles.has(filename);
+            
+            // Update the row's selected class
+            const row = checkbox.closest('.file-table-row');
+            if (row) {
+                if (this.selectedFiles.has(filename)) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            }
+        });
     }
 
     /**
