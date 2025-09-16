@@ -291,7 +291,7 @@ class FileBrowser {
         const tableHTML = `
             <div class="file-table">
                 <div class="file-table-header">
-                    <div class="file-table-row">
+                    <div class="file-table-row file-table-header-row">
                         <div class="file-table-cell file-checkbox">
                             <input type="checkbox" id="select-all" class="file-checkbox-input">
                         </div>
@@ -394,8 +394,8 @@ class FileBrowser {
             });
         }
 
-        // Individual file checkboxes
-        document.querySelectorAll('.file-checkbox-input[data-filename]').forEach(checkbox => {
+        // Individual file checkboxes (exclude select all checkbox and header row)
+        document.querySelectorAll('.file-table-row:not(.file-table-header-row) .file-checkbox-input[data-filename]').forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
                 const filename = e.target.dataset.filename;
                 this.handleFileSelection(filename, e.target.checked);
@@ -482,6 +482,24 @@ class FileBrowser {
         if (selectionCount) {
             const count = this.selectedFiles.size;
             selectionCount.textContent = `${count} file${count !== 1 ? 's' : ''} selected`;
+        }
+        
+        // Update select all checkbox state
+        const selectAllCheckbox = document.getElementById('select-all');
+        if (selectAllCheckbox) {
+            const totalFiles = this.filteredFiles.length;
+            const selectedCount = this.selectedFiles.size;
+            
+            if (selectedCount === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else if (selectedCount === totalFiles) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            }
         }
     }
 
