@@ -652,11 +652,19 @@ label {
     padding: var(--spacing-4);
 }
 
-.file-bulk-actions {
-    display: flex;
-    gap: var(--spacing-3);
-    justify-content: flex-end;
-}
+    .file-bulk-actions {
+        display: flex;
+        gap: var(--spacing-3);
+        justify-content: flex-end;
+    }
+
+    .mobile-download-note {
+        margin-top: var(--spacing-2);
+        font-size: var(--font-size-xs);
+        color: var(--gray-500);
+        text-align: center;
+        font-style: italic;
+    }
 
 .file-item {
     display: flex;

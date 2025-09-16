@@ -22,6 +22,7 @@ class FileBrowser {
         this.files = [];
         this.filteredFiles = [];
         this.selectedFiles = new Set();
+        this.isMobile = this.state.isMobile();
         
         this.init();
     }
@@ -271,16 +272,17 @@ class FileBrowser {
                         : this.filteredFiles.map(file => this.createFileItem(file)).join('')
                     }
                 </div>
-                <div class="file-list-footer">
-                    <div class="file-bulk-actions">
-                        <button id="bulk-download" class="btn btn-secondary" disabled>
-                            Download Selected
-                        </button>
-                        <button id="bulk-delete" class="btn btn-danger" disabled>
-                            Delete Selected
-                        </button>
+                    <div class="file-list-footer">
+                        <div class="file-bulk-actions">
+                            <button id="bulk-download" class="btn btn-secondary" disabled>
+                                Download Selected
+                            </button>
+                            <button id="bulk-delete" class="btn btn-danger" disabled>
+                                Delete Selected
+                            </button>
+                        </div>
+                        <div class="mobile-download-note" style="display: none;">Bulk downloads not supported on mobile</div>
                     </div>
-                </div>
             </div>
         `;
 
@@ -291,6 +293,9 @@ class FileBrowser {
         
         // Update selection display to sync checkbox states
         this.updateSelectionDisplay();
+        
+        // Update mobile download note visibility
+        this.updateMobileDownloadNote();
         
         // Reset all aria-expanded states to false for new items
         document.querySelectorAll('.file-item').forEach(item => {
@@ -418,16 +423,16 @@ class FileBrowser {
             });
         });
 
-        // Bulk actions
-        const bulkDownloadBtn = document.getElementById('bulk-download');
-        const bulkDeleteBtn = document.getElementById('bulk-delete');
-        
-        if (bulkDownloadBtn) {
-            bulkDownloadBtn.addEventListener('click', () => this.handleBulkDownload());
-        }
-        if (bulkDeleteBtn) {
-            bulkDeleteBtn.addEventListener('click', () => this.handleBulkDelete());
-        }
+            // Bulk actions
+            const bulkDownloadBtn = document.getElementById('bulk-download');
+            const bulkDeleteBtn = document.getElementById('bulk-delete');
+            
+            if (bulkDownloadBtn) {
+                bulkDownloadBtn.addEventListener('click', () => this.handleBulkDownload());
+            }
+            if (bulkDeleteBtn) {
+                bulkDeleteBtn.addEventListener('click', () => this.handleBulkDelete());
+            }
     }
 
     /**
@@ -467,6 +472,7 @@ class FileBrowser {
         
         this.updateSelectionDisplay();
         this.updateBulkActions();
+        this.updateMobileDownloadNote();
     }
 
     /**
@@ -481,6 +487,21 @@ class FileBrowser {
         
         this.updateSelectionDisplay();
         this.updateBulkActions();
+        this.updateMobileDownloadNote();
+    }
+
+    /**
+     * Update mobile download note visibility
+     */
+    updateMobileDownloadNote() {
+        const mobileNote = document.querySelector('.mobile-download-note');
+        if (mobileNote) {
+            if (this.isMobile && this.selectedFiles.size > 1) {
+                mobileNote.style.display = 'block';
+            } else {
+                mobileNote.style.display = 'none';
+            }
+        }
     }
 
     /**
@@ -533,11 +554,26 @@ class FileBrowser {
      */
     updateBulkActions() {
         const hasSelection = this.selectedFiles.size > 0;
+        const isMultipleSelection = this.selectedFiles.size > 1;
         const bulkDownloadBtn = document.getElementById('bulk-download');
         const bulkDeleteBtn = document.getElementById('bulk-delete');
         
-        if (bulkDownloadBtn) bulkDownloadBtn.disabled = !hasSelection;
-        if (bulkDeleteBtn) bulkDeleteBtn.disabled = !hasSelection;
+        if (bulkDownloadBtn) {
+            // Disable if no selection, or if mobile with multiple files selected
+            bulkDownloadBtn.disabled = !hasSelection || (this.isMobile && isMultipleSelection);
+            
+            // Update visual state and tooltip for mobile multiple selection
+            if (this.isMobile && isMultipleSelection) {
+                bulkDownloadBtn.style.opacity = '0.5';
+                bulkDownloadBtn.title = 'Bulk downloads not supported on mobile devices';
+            } else {
+                bulkDownloadBtn.style.opacity = '1';
+                bulkDownloadBtn.title = '';
+            }
+        }
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.disabled = !hasSelection;
+        }
     }
 
     /**

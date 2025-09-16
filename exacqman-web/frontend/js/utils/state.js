@@ -60,6 +60,14 @@ class AppState {
     }
 
     /**
+     * Detect if the current device is mobile
+     * @returns {boolean} True if mobile device
+     */
+    isMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    /**
      * Get current state
      * @returns {Object} Current state
      */
