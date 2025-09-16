@@ -209,7 +209,7 @@ class FileService:
             parts = name_without_ext.split('_')
             
             if len(parts) >= 4:
-                # New format: YYYY-MM-DD_HHMMam/pm_camera_multiplierx
+                # Format: YYYY-MM-DD_HHMMam/pm_camera_multiplierx
                 # parts[0] = date, parts[1] = time, parts[2] = camera, parts[3] = multiplier
                 
                 # Last part should be the multiplier (e.g., "10x")
@@ -224,23 +224,6 @@ class FileService:
                 
                 # Camera alias is the second-to-last part
                 camera_alias = parts[-2] if multiplier is not None else None
-                
-                return camera_alias, multiplier
-                
-            elif len(parts) >= 3:
-                # Legacy format: YYYY-MM-DD_camera_alias_multiplierx (fallback)
-                # Last part should be the multiplier (e.g., "10x")
-                multiplier_part = parts[-1]
-                if multiplier_part.endswith('x'):
-                    try:
-                        multiplier = int(multiplier_part[:-1])
-                    except ValueError:
-                        multiplier = None
-                else:
-                    multiplier = None
-                
-                # Camera alias is everything between date and multiplier
-                camera_alias = '_'.join(parts[1:-1]) if multiplier is not None else '_'.join(parts[1:])
                 
                 return camera_alias, multiplier
             
