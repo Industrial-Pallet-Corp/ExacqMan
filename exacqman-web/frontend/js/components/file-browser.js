@@ -42,7 +42,10 @@ class FileBrowser {
         this.setupStateListeners();
         
         // Show headers immediately, even before files are loaded
-        this.updateDisplay();
+        // Use setTimeout to ensure DOM is ready
+        setTimeout(() => {
+            this.updateDisplay();
+        }, 0);
         
         this.loadFiles();
     }
@@ -133,6 +136,7 @@ class FileBrowser {
     setupStateListeners() {
         // Listen for processed videos updates
         this.state.subscribe('processedVideos', (videos) => {
+            console.log('State listener: processedVideos updated, videos.length:', videos?.length || 0);
             this.files = videos || [];
             this.applyFilters();
             this.updateCameraFilter();
@@ -285,6 +289,8 @@ class FileBrowser {
      */
     updateDisplay() {
         if (!this.filesListElement) return;
+
+        console.log('updateDisplay called, filteredFiles.length:', this.filteredFiles.length);
 
         // Always show table headers, even when no files
         const tableHTML = `
