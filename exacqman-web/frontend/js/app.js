@@ -346,8 +346,8 @@ class ExacqManApp {
      * Validate form using components
      */
     validateForm() {
-        const configValid = this.state.get('currentConfig');
-        const cameraValid = this.cameraSelector?.validateSelection();
+        const configValid = this.validateConfigSelection();
+        const cameraValid = this.validateCameraSelection();
         const datetimeValid = this.dateTimePicker?.validateBoth();
         const multiplierValid = this.multiplierSelector?.validateSelection();
         const serverValid = this.validateServerSelection();
@@ -378,6 +378,40 @@ class ExacqManApp {
         }
         
         ValidationUtils.clearFieldError(serverSelect);
+        return true;
+    }
+
+    /**
+     * Validate configuration selection
+     */
+    validateConfigSelection() {
+        const configSelect = document.getElementById('config-select');
+        if (!configSelect) return false;
+        
+        const selectedConfig = configSelect.value;
+        if (!selectedConfig || selectedConfig.trim() === '') {
+            ValidationUtils.showFieldError(configSelect, 'Please select a configuration file');
+            return false;
+        }
+        
+        ValidationUtils.clearFieldError(configSelect);
+        return true;
+    }
+
+    /**
+     * Validate camera selection
+     */
+    validateCameraSelection() {
+        const cameraSelect = document.getElementById('camera-select');
+        if (!cameraSelect) return false;
+        
+        const selectedCamera = cameraSelect.value;
+        if (!selectedCamera || selectedCamera.trim() === '') {
+            ValidationUtils.showFieldError(cameraSelect, 'Please select a camera');
+            return false;
+        }
+        
+        ValidationUtils.clearFieldError(cameraSelect);
         return true;
     }
 
@@ -464,6 +498,14 @@ class ExacqManApp {
             select.appendChild(option);
         });
         select.disabled = false;
+        select.required = true;
+        
+        // Auto-select if only one configuration
+        if (configs.length === 1) {
+            select.value = configs[0].path;
+            this.handleConfigChange(configs[0].path);
+            console.log('Auto-selected configuration:', configs[0].name);
+        }
     }
 
 
@@ -475,13 +517,22 @@ class ExacqManApp {
         if (!select) return;
         
         select.innerHTML = '<option value="">Select server...</option>';
-        Object.entries(servers).forEach(([name, ip]) => {
+        const serverEntries = Object.entries(servers);
+        
+        serverEntries.forEach(([name, ip]) => {
             const option = document.createElement('option');
             option.value = name;
             option.textContent = `${name} (${ip})`;
             select.appendChild(option);
         });
-        select.disabled = Object.keys(servers).length === 0;
+        
+        select.disabled = serverEntries.length === 0;
+        
+        // Auto-select if only one server
+        if (serverEntries.length === 1) {
+            select.value = serverEntries[0][0];
+            console.log('Auto-selected server:', serverEntries[0][0]);
+        }
     }
 
     /**

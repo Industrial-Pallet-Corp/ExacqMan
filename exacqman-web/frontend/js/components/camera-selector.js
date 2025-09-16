@@ -132,9 +132,16 @@ class CameraSelector {
         });
 
         this.selectElement.disabled = false;
+        this.selectElement.required = true;
         
-        // Restore selection if it was valid
-        if (currentValue && cameras.some(camera => camera.alias === currentValue)) {
+        // Auto-select if only one camera
+        if (cameras.length === 1) {
+            this.selectElement.value = cameras[0].alias;
+            this.handleCameraChange(cameras[0].alias);
+            console.log('Auto-selected camera:', cameras[0].alias);
+        }
+        // Restore selection if it was valid (only if not auto-selected)
+        else if (currentValue && cameras.some(camera => camera.alias === currentValue)) {
             this.selectElement.value = currentValue;
             console.log('CameraSelector updateCameraList - restored value:', currentValue);
         }
@@ -150,6 +157,7 @@ class CameraSelector {
 
         this.selectElement.innerHTML = '<option value="">Select configuration first</option>';
         this.selectElement.disabled = true;
+        this.selectElement.required = false;
         this.state.set('selectedCamera', null);
     }
 
