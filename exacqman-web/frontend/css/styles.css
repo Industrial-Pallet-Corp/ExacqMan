@@ -305,7 +305,7 @@ label {
 }
 
 .btn-danger {
-    background-color: var(--error-color);
+    background-color: var(--brand-burgundy);
     color: white;
 }
 
