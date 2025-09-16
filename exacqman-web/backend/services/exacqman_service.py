@@ -85,11 +85,11 @@ class ExacqManService:
             output = stdout.decode() if stdout else ""
             logger.info(f"Extract command completed: {output}")
             
-            # Clean up intermediate files
-            await self._cleanup_intermediate_files()
-            
             # Move final output to exports directory
             final_path = await self._move_to_exports(output_filename)
+            
+            # Clean up intermediate files after moving the final file
+            await self._cleanup_intermediate_files(output_filename)
             
             return {
                 "operation": "extract",
@@ -104,7 +104,7 @@ class ExacqManService:
             logger.error(f"Error in extract_video: {str(e)}")
             # Try to clean up even if extraction failed
             try:
-                await self._cleanup_intermediate_files()
+                await self._cleanup_intermediate_files(output_filename)
             except Exception as cleanup_error:
                 logger.error(f"Cleanup failed after extraction error: {cleanup_error}")
             raise
@@ -122,16 +122,40 @@ class ExacqManService:
         date_str = request.start_datetime.strftime("%Y-%m-%d")
         return f"{date_str}_{request.camera_alias}_{request.timelapse_multiplier}x"
     
-    async def _cleanup_intermediate_files(self):
+    async def _cleanup_intermediate_files(self, base_filename: str = None):
         """
         Clean up intermediate files created during video processing.
         
         This removes temporary files that ExacqMan creates during processing
-        but keeps only the final output.
+        but keeps only the final compressed output.
+        
+        Args:
+            base_filename: Base filename to clean up specific intermediate files
         """
         try:
-            # Look for common intermediate file patterns
-            intermediate_patterns = [
+            cleaned_files = []
+            
+            # Clean up specific intermediate files if base_filename is provided
+            if base_filename:
+                base_name = base_filename.replace('.mp4', '')
+                
+                # Patterns for intermediate files specific to this extraction
+                specific_patterns = [
+                    f"{base_name}.mp4",  # Raw export
+                    f"{base_name}_*.mp4",  # Timelapsed version (before compression)
+                ]
+                
+                for pattern in specific_patterns:
+                    for file_path in self.working_directory.glob(pattern):
+                        if file_path.is_file():
+                            # Skip the final compressed file
+                            if not any(compression in file_path.name for compression in ['_libx264_', '_high', '_medium', '_low']):
+                                file_path.unlink()
+                                cleaned_files.append(file_path.name)
+                                logger.info(f"Cleaned up intermediate file: {file_path.name}")
+            
+            # Clean up general temporary files
+            general_patterns = [
                 "*.tmp",
                 "*_temp.*",
                 "*_intermediate.*",
@@ -139,8 +163,7 @@ class ExacqManService:
                 "*.log"
             ]
             
-            cleaned_files = []
-            for pattern in intermediate_patterns:
+            for pattern in general_patterns:
                 for file_path in self.working_directory.glob(pattern):
                     if file_path.is_file():
                         file_path.unlink()
@@ -157,7 +180,7 @@ class ExacqManService:
     
     async def _move_to_exports(self, filename: str) -> str:
         """
-        Move the final output file to the exports directory.
+        Move the final compressed file to the exports directory.
         
         Args:
             filename: Base name of the file to move (exacqman.py may create variations)
@@ -170,27 +193,38 @@ class ExacqManService:
             exports_dir = self.working_directory / "exacqman-web" / "exports"
             exports_dir.mkdir(parents=True, exist_ok=True)
             
-            # Look for the final compressed file (exacqman.py creates libx264_high version)
+            # Look for the final compressed file with any compression level
             base_name = filename.replace('.mp4', '')  # Remove .mp4 if present
-            final_filename = f"{base_name}_libx264_high.mp4"
-            source_path = self.working_directory / final_filename
+            source_path = None
             
-            if not source_path.exists():
-                # Fallback to original filename
+            # Try to find the final compressed file with libx264 pattern
+            for file_path in self.working_directory.glob(f"{base_name}_*_libx264_*.mp4"):
+                if file_path.is_file():
+                    source_path = file_path
+                    break
+            
+            # If not found, try the specific high compression pattern
+            if not source_path:
+                final_filename = f"{base_name}_libx264_high.mp4"
+                source_path = self.working_directory / final_filename
+                if not source_path.exists():
+                    source_path = None
+            
+            # Fallback to original filename if no compressed version found
+            if not source_path:
                 source_path = self.working_directory / filename
                 if not source_path.exists():
-                    # Try with .mp4 extension if not found
                     source_path = self.working_directory / f"{filename}.mp4"
             
-            if not source_path.exists():
-                raise FileNotFoundError(f"Output file not found: {filename} (tried {final_filename}, {filename}, {filename}.mp4)")
+            if not source_path or not source_path.exists():
+                raise FileNotFoundError(f"Final compressed file not found for: {filename}")
             
             # Move to exports directory with clean filename
             clean_filename = f"{base_name}.mp4"
             dest_path = exports_dir / clean_filename
             shutil.move(str(source_path), str(dest_path))
             
-            logger.info(f"Moved {source_path.name} to exports directory as {clean_filename}")
+            logger.info(f"Moved final compressed file {source_path.name} to exports directory as {clean_filename}")
             return str(dest_path)
             
         except Exception as e:
