@@ -2,14 +2,25 @@
 
 /* CSS Custom Properties (Theme Variables) */
 :root {
-    /* Colors */
-    --primary-color: #2563eb;
-    --primary-hover: #1d4ed8;
-    --secondary-color: #64748b;
-    --success-color: #10b981;
+    /* Brand Colors */
+    --brand-burgundy: rgb(120, 47, 64);
+    --brand-burgundy-dark: rgb(100, 35, 50);
+    --brand-burgundy-light: rgb(140, 59, 78);
+    --brand-green: rgb(47, 120, 80);
+    --brand-green-dark: rgb(35, 90, 60);
+    --brand-green-light: rgb(59, 150, 100);
+    --brand-grey: rgb(69, 65, 66);
+    --brand-grey-dark: rgb(50, 45, 46);
+    --brand-grey-light: rgb(88, 85, 86);
+    
+    /* UI Colors (using brand palette) */
+    --primary-color: var(--brand-burgundy);
+    --primary-hover: var(--brand-burgundy-dark);
+    --secondary-color: var(--brand-grey);
+    --success-color: var(--brand-green);
     --warning-color: #f59e0b;
     --error-color: #ef4444;
-    --info-color: #3b82f6;
+    --info-color: var(--brand-burgundy-light);
     
     /* Neutral Colors */
     --gray-50: #f8fafc;
@@ -140,11 +151,18 @@ body {
 }
 
 .status-indicator.connected {
-    background-color: var(--success-color);
+    background-color: var(--brand-green);
+    color: white;
+}
+
+.status-indicator.disconnected {
+    background-color: var(--brand-grey);
+    color: white;
 }
 
 .status-indicator.error {
     background-color: var(--error-color);
+    color: white;
 }
 
 /* Main Container */
@@ -217,7 +235,7 @@ label {
 .form-control:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px rgba(120, 47, 64, 0.1);
 }
 
 .form-control:disabled {
@@ -292,7 +310,7 @@ label {
 }
 
 .btn-danger:hover:not(:disabled) {
-    background-color: #dc2626;
+    background-color: var(--brand-burgundy-dark);
 }
 
 /* Job Status Styles */
@@ -374,12 +392,12 @@ label {
 
 .job-item.processing {
     border-color: var(--info-color);
-    background-color: rgba(59, 130, 246, 0.05);
+    background-color: rgba(120, 47, 64, 0.05);
 }
 
 .job-item.completed {
     border-color: var(--success-color);
-    background-color: rgba(16, 185, 129, 0.05);
+    background-color: rgba(47, 120, 80, 0.05);
 }
 
 .job-item.failed {
@@ -522,7 +540,7 @@ label {
 }
 
 .file-table-row.selected {
-    background-color: rgba(37, 99, 235, 0.05);
+    background-color: rgba(120, 47, 64, 0.05);
 }
 
 .file-table-cell {
