@@ -48,6 +48,11 @@ class ExacqManService:
             output_filename = self._generate_output_filename(request)
             
             # Build command arguments
+            # Convert config file to absolute path if it's relative
+            config_file_path = request.config_file
+            if not Path(config_file_path).is_absolute():
+                config_file_path = str(self.working_directory / config_file_path)
+            
             cmd_args = [
                 "python3", self.exacqman_path,
                 "extract",
@@ -55,7 +60,7 @@ class ExacqManService:
                 start_date,
                 start_time,
                 end_time,
-                request.config_file,
+                config_file_path,
                 "--multiplier", str(request.timelapse_multiplier),
                 "-o", output_filename
             ]
@@ -65,6 +70,9 @@ class ExacqManService:
                 cmd_args.extend(["--server", request.server])
             
             logger.info(f"Running extract command: {' '.join(cmd_args)}")
+            logger.info(f"Working directory: {self.working_directory}")
+            logger.info(f"Config file path: {config_file_path}")
+            logger.info(f"Config file exists: {Path(config_file_path).exists()}")
             
             # Run the command asynchronously
             process = await asyncio.create_subprocess_exec(
