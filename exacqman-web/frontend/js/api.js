@@ -6,8 +6,19 @@
  */
 
 class ExacqManAPI {
-    constructor(baseURL = 'http://localhost:8887/api') {
-        this.baseURL = baseURL;
+    constructor(baseURL = null) {
+        // Auto-detect the base URL based on current host
+        if (!baseURL) {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            const port = window.location.port || (protocol === 'https:' ? '443' : '80');
+            
+            // Use the current host for API calls
+            this.baseURL = `${protocol}//${hostname}:8887/api`;
+        } else {
+            this.baseURL = baseURL;
+        }
+        
         this.defaultHeaders = {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
@@ -26,6 +37,9 @@ class ExacqManAPI {
             headers: { ...this.defaultHeaders, ...options.headers },
             ...options
         };
+
+        // Debug logging for mobile troubleshooting
+        console.log(`API Request: ${url}`, config);
 
         try {
             const response = await fetch(url, config);
@@ -51,11 +65,21 @@ class ExacqManAPI {
                 throw error;
             }
             
-            // Network or other errors
+            // Handle network errors with more specific messages
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                console.error('Network error:', error);
+                throw new APIError(
+                    'Network error: Unable to connect to server. Please check that the server is running and accessible.',
+                    0,
+                    { originalError: error.message, url: url }
+                );
+            }
+            
+            console.error('API request failed:', error);
             throw new APIError(
-                `Network error: ${error.message}`,
+                `Request failed: ${error.message}`,
                 0,
-                { originalError: error }
+                { originalError: error.message, url: url }
             );
         }
     }
