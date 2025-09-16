@@ -22,8 +22,6 @@ class FileBrowser {
         this.files = [];
         this.filteredFiles = [];
         this.selectedFiles = new Set();
-        this.sortColumn = 'created_at';
-        this.sortDirection = 'desc';
         
         this.init();
     }
@@ -213,7 +211,6 @@ class FileBrowser {
         }
         this.selectedFiles = newSelectedFiles;
         
-        this.sortFiles();
         this.updateDisplay();
     }
 
@@ -250,46 +247,6 @@ class FileBrowser {
         });
     }
 
-    /**
-     * Sort files by current column and direction
-     */
-    sortFiles() {
-        this.filteredFiles.sort((a, b) => {
-            let aVal = a[this.sortColumn];
-            let bVal = b[this.sortColumn];
-
-            // Handle different data types
-            if (this.sortColumn === 'created_at') {
-                aVal = new Date(aVal);
-                bVal = new Date(bVal);
-            } else if (this.sortColumn === 'size') {
-                aVal = parseInt(aVal) || 0;
-                bVal = parseInt(bVal) || 0;
-            } else {
-                aVal = String(aVal || '').toLowerCase();
-                bVal = String(bVal || '').toLowerCase();
-            }
-
-            if (aVal < bVal) return this.sortDirection === 'asc' ? -1 : 1;
-            if (aVal > bVal) return this.sortDirection === 'asc' ? 1 : -1;
-            return 0;
-        });
-    }
-
-    /**
-     * Handle column header click for sorting
-     */
-    handleSort(column) {
-        if (this.sortColumn === column) {
-            this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            this.sortColumn = column;
-            this.sortDirection = 'asc';
-        }
-        
-        this.sortFiles();
-        this.updateDisplay();
-    }
 
     /**
      * Update file display
@@ -297,111 +254,96 @@ class FileBrowser {
     updateDisplay() {
         if (!this.filesListElement) return;
 
-        // Always show table headers, even when no files
-        const tableHTML = `
-            <div class="file-table">
-                <div class="file-table-header">
-                    <div class="file-table-row file-table-header-row">
-                        <div class="file-table-cell file-checkbox">
+        // Create mobile-friendly file list
+        const listHTML = `
+            <div class="file-list">
+                <div class="file-list-header">
+                    <div class="file-list-header-content">
+                        <div class="file-selection-controls">
                             <input type="checkbox" id="select-all" class="file-checkbox-input">
+                            <span id="selection-count">Select All (0 files selected)</span>
                         </div>
-                        <div class="file-table-cell file-filename sortable" data-column="filename">
-                            Filename <span class="sort-indicator"></span>
-                        </div>
-                        <div class="file-table-cell file-size sortable" data-column="size">
-                            Size <span class="sort-indicator"></span>
-                        </div>
-                        <div class="file-table-cell file-camera sortable" data-column="camera_alias">
-                            Camera <span class="sort-indicator"></span>
-                        </div>
-                        <div class="file-table-cell file-date sortable" data-column="created_at">
-                            Date Created <span class="sort-indicator"></span>
-                        </div>
-                        <div class="file-table-cell file-actions">Actions</div>
                     </div>
                 </div>
-                <div class="file-table-body">
+                <div class="file-list-body">
                     ${this.filteredFiles.length === 0 
-                        ? '<div class="no-files-row"><div class="file-table-cell" colspan="6">No files found</div></div>'
-                        : this.filteredFiles.map(file => this.createFileRow(file)).join('')
+                        ? '<div class="no-files">No files found</div>'
+                        : this.filteredFiles.map(file => this.createFileItem(file)).join('')
                     }
                 </div>
-            </div>
-            <div class="file-table-footer">
-                <div class="file-selection-info">
-                    <span id="selection-count">0 files selected</span>
-                </div>
-                <div class="file-bulk-actions">
-                    <button id="bulk-download" class="btn btn-secondary" disabled>
-                        Download Selected
-                    </button>
-                    <button id="bulk-delete" class="btn btn-danger" disabled>
-                        Delete Selected
-                    </button>
+                <div class="file-list-footer">
+                    <div class="file-bulk-actions">
+                        <button id="bulk-download" class="btn btn-secondary" disabled>
+                            Download Selected
+                        </button>
+                        <button id="bulk-delete" class="btn btn-danger" disabled>
+                            Delete Selected
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
 
-        this.filesListElement.innerHTML = tableHTML;
+        this.filesListElement.innerHTML = listHTML;
 
         // Set up event listeners for new elements
-        this.setupTableEventListeners();
-        this.updateSortIndicators();
+        this.setupListEventListeners();
         
         // Update selection display to sync checkbox states
         this.updateSelectionDisplay();
     }
 
     /**
-     * Create file row HTML
+     * Create file item HTML for mobile-friendly list
      */
-    createFileRow(file) {
+    createFileItem(file) {
         const isSelected = this.selectedFiles.has(file.filename);
         const fileSize = this.api.formatFileSize(file.size);
         const createdDate = this.api.formatDate(file.created_at);
         
         return `
-            <div class="file-table-row ${isSelected ? 'selected' : ''}" data-filename="${file.filename}">
-                <div class="file-table-cell file-checkbox">
-                    <input type="checkbox" class="file-checkbox-input" ${isSelected ? 'checked' : ''} 
-                           data-filename="${file.filename}">
+            <div class="file-item ${isSelected ? 'selected' : ''}" data-filename="${file.filename}">
+                <div class="file-item-collapsed">
+                    <div class="file-item-checkbox">
+                        <input type="checkbox" class="file-checkbox-input" ${isSelected ? 'checked' : ''} 
+                               data-filename="${file.filename}">
+                    </div>
+                    <div class="file-item-filename" data-filename="${file.filename}">
+                        <span class="filename-text">${file.filename}</span>
+                    </div>
                 </div>
-                <div class="file-table-cell file-filename">
-                    <span class="filename-text">${file.filename}</span>
-                </div>
-                <div class="file-table-cell file-size">
-                    ${fileSize}
-                </div>
-                <div class="file-table-cell file-camera">
-                    ${file.camera_alias || 'Unknown'}
-                </div>
-                <div class="file-table-cell file-date">
-                    ${createdDate}
-                </div>
-                <div class="file-table-cell file-actions">
-                    <button class="btn btn-sm btn-secondary download-btn" data-filename="${file.filename}">
-                        Download
-                    </button>
-                    <button class="btn btn-sm btn-danger delete-btn" data-filename="${file.filename}">
-                        Delete
-                    </button>
+                <div class="file-item-expanded" style="display: none;">
+                    <div class="file-item-details">
+                        <div class="file-detail-row">
+                            <span class="file-detail-label">Camera:</span>
+                            <span class="file-detail-value">${file.camera_alias || 'Unknown'}</span>
+                        </div>
+                        <div class="file-detail-row">
+                            <span class="file-detail-label">Size:</span>
+                            <span class="file-detail-value">${fileSize}</span>
+                        </div>
+                        <div class="file-detail-row">
+                            <span class="file-detail-label">Date Created:</span>
+                            <span class="file-detail-value">${createdDate}</span>
+                        </div>
+                    </div>
+                    <div class="file-item-actions">
+                        <button class="btn btn-sm btn-secondary download-btn" data-filename="${file.filename}">
+                            Download
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-btn" data-filename="${file.filename}">
+                            Delete
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
     }
 
     /**
-     * Set up table event listeners
+     * Set up list event listeners
      */
-    setupTableEventListeners() {
-        // Sortable column headers
-        document.querySelectorAll('.sortable').forEach(header => {
-            header.addEventListener('click', (e) => {
-                const column = e.currentTarget.dataset.column;
-                this.handleSort(column);
-            });
-        });
-
+    setupListEventListeners() {
         // Select all checkbox
         const selectAllCheckbox = document.getElementById('select-all');
         if (selectAllCheckbox) {
@@ -415,11 +357,27 @@ class FileBrowser {
             });
         }
 
-        // Individual file checkboxes (exclude select all checkbox and header row)
-        document.querySelectorAll('.file-table-row:not(.file-table-header-row) .file-checkbox-input[data-filename]').forEach(checkbox => {
+        // Individual file checkboxes
+        document.querySelectorAll('.file-item .file-checkbox-input[data-filename]').forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
                 const filename = e.target.dataset.filename;
                 this.handleFileSelection(filename, e.target.checked);
+            });
+        });
+
+        // File item click handlers for expand/collapse (entire row except checkbox)
+        document.querySelectorAll('.file-item').forEach(fileItem => {
+            fileItem.addEventListener('click', (e) => {
+                // Don't trigger if clicking on checkbox or action buttons
+                if (e.target.classList.contains('file-checkbox-input') || 
+                    e.target.classList.contains('download-btn') || 
+                    e.target.classList.contains('delete-btn') ||
+                    e.target.closest('.file-item-actions')) {
+                    return;
+                }
+                
+                const filename = fileItem.dataset.filename;
+                this.toggleFileExpansion(filename);
             });
         });
 
@@ -452,18 +410,25 @@ class FileBrowser {
     }
 
     /**
-     * Update sort indicators
+     * Toggle file item expansion
      */
-    updateSortIndicators() {
-        document.querySelectorAll('.sort-indicator').forEach(indicator => {
-            indicator.textContent = '';
-        });
+    toggleFileExpansion(filename) {
+        const fileItem = document.querySelector(`[data-filename="${filename}"]`);
+        if (!fileItem) return;
 
-        const activeColumn = document.querySelector(`[data-column="${this.sortColumn}"] .sort-indicator`);
-        if (activeColumn) {
-            activeColumn.textContent = this.sortDirection === 'asc' ? '↑' : '↓';
+        const expandedSection = fileItem.querySelector('.file-item-expanded');
+        
+        if (!expandedSection) return;
+
+        const isExpanded = expandedSection.style.display !== 'none';
+        
+        if (isExpanded) {
+            expandedSection.style.display = 'none';
+        } else {
+            expandedSection.style.display = 'block';
         }
     }
+
 
     /**
      * Handle select all checkbox
@@ -502,7 +467,7 @@ class FileBrowser {
         const selectionCount = document.getElementById('selection-count');
         if (selectionCount) {
             const count = this.selectedFiles.size;
-            selectionCount.textContent = `${count} file${count !== 1 ? 's' : ''} selected`;
+            selectionCount.textContent = `Select All (${count} file${count !== 1 ? 's' : ''} selected)`;
         }
         
         // Update select all checkbox state
@@ -524,17 +489,17 @@ class FileBrowser {
         }
         
         // Update individual file checkboxes
-        document.querySelectorAll('.file-table-row:not(.file-table-header-row) .file-checkbox-input[data-filename]').forEach(checkbox => {
+        document.querySelectorAll('.file-item .file-checkbox-input[data-filename]').forEach(checkbox => {
             const filename = checkbox.dataset.filename;
             checkbox.checked = this.selectedFiles.has(filename);
             
             // Update the row's selected class
-            const row = checkbox.closest('.file-table-row');
-            if (row) {
+            const fileItem = checkbox.closest('.file-item');
+            if (fileItem) {
                 if (this.selectedFiles.has(filename)) {
-                    row.classList.add('selected');
+                    fileItem.classList.add('selected');
                 } else {
-                    row.classList.remove('selected');
+                    fileItem.classList.remove('selected');
                 }
             }
         });
