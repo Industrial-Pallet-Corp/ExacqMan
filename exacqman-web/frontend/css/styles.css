@@ -83,7 +83,7 @@ body {
 
 /* Header Styles */
 .header {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    background: rgb(145, 145, 145);
     color: white;
     padding: var(--spacing-4) 0;
     box-shadow: var(--shadow-md);
@@ -101,16 +101,27 @@ body {
 .logo {
     display: flex;
     align-items: center;
-    gap: var(--spacing-3);
+    gap: var(--spacing-4);
 }
 
-.logo-icon {
-    font-size: var(--font-size-2xl);
+.company-logo {
+    display: flex;
+    align-items: center;
+    margin-right: var(--spacing-3);
+}
+
+.logo-image {
+    height: 48px;
+    width: auto;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    object-fit: contain;
 }
 
 .logo h1 {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-3xl);
     font-weight: 700;
+    color: white;
+    margin: 0;
 }
 
 .connection-status {
