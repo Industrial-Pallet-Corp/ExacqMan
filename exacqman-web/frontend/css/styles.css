@@ -216,7 +216,7 @@ body {
 
 /* Align extract button with dropdown by adding top margin to match label height */
 .form-row .form-group:last-child .btn {
-    margin-top: calc(var(--spacing-2) + var(--font-size-sm) + 2px);
+    margin-top: calc(var(--spacing-2) + (var(--font-size-sm) * 1.6) + 2px);
 }
 
 label {
