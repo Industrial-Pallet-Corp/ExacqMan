@@ -133,10 +133,7 @@ class ExacqManApp {
             this.updateJobDisplay();
         });
 
-        // Processed videos
-        this.state.subscribe('processedVideos', (videos) => {
-            this.updateFileDisplay();
-        });
+        // Processed videos - handled by FileBrowser component
     }
 
     /**
@@ -538,49 +535,6 @@ class ExacqManApp {
         `;
     }
 
-    /**
-     * Update file display
-     */
-    updateFileDisplay() {
-        const filesList = document.getElementById('files-list');
-        if (!filesList) return;
-        
-        const videos = this.state.get('processedVideos');
-        
-        if (videos.length === 0) {
-            filesList.innerHTML = '<div class="no-files">No processed videos found</div>';
-            return;
-        }
-        
-        filesList.innerHTML = videos.map(video => this.createFileElement(video)).join('');
-    }
-
-    /**
-     * Create file element HTML
-     */
-    createFileElement(video) {
-        const fileSize = this.api.formatFileSize(video.size);
-        const createdDate = this.api.formatDate(video.created_at);
-        
-        return `
-            <div class="file-item">
-                <div class="file-info">
-                    <div class="file-name">${video.filename}</div>
-                    <div class="file-meta">${video.camera_alias || 'Unknown'}</div>
-                    <div class="file-meta">${video.timelapse_multiplier || 'N/A'}x</div>
-                    <div class="file-meta">${fileSize}</div>
-                </div>
-                <div class="file-actions">
-                    <button class="btn btn-secondary" onclick="app.handleFileDownload('${video.filename}')">
-                        Download
-                    </button>
-                    <button class="btn btn-danger" onclick="app.handleFileDelete('${video.filename}')">
-                        Delete
-                    </button>
-                </div>
-            </div>
-        `;
-    }
 
     /**
      * Remove job from tracking
