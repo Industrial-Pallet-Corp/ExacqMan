@@ -123,7 +123,39 @@ class ExacqManService:
             Generated filename (without .mp4 extension, as exacqman.py adds it automatically)
         """
         date_str = request.start_datetime.strftime("%Y-%m-%d")
-        return f"{date_str}_{request.camera_alias}_{request.timelapse_multiplier}x"
+        time_str = self._format_time_for_filename(request.start_datetime)
+        return f"{date_str}_{time_str}_{request.camera_alias}_{request.timelapse_multiplier}x"
+    
+    def _format_time_for_filename(self, datetime_obj) -> str:
+        """
+        Format datetime for filename: 9:15am becomes 0915am, 11:45pm becomes 1145pm
+        
+        Args:
+            datetime_obj: datetime object
+            
+        Returns:
+            Formatted time string for filename
+        """
+        # Get hour and minute
+        hour = datetime_obj.hour
+        minute = datetime_obj.minute
+        
+        # Convert to 12-hour format
+        if hour == 0:
+            hour_12 = 12
+            period = 'am'
+        elif hour < 12:
+            hour_12 = hour
+            period = 'am'
+        elif hour == 12:
+            hour_12 = 12
+            period = 'pm'
+        else:
+            hour_12 = hour - 12
+            period = 'pm'
+        
+        # Format as HHMMam/pm (zero-padded)
+        return f"{hour_12:02d}{minute:02d}{period}"
     
     async def _cleanup_intermediate_files(self, base_filename: str = None):
         """
