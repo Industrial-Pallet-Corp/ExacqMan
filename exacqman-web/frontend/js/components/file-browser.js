@@ -40,6 +40,10 @@ class FileBrowser {
         this.createFilterControls();
         this.setupEventListeners();
         this.setupStateListeners();
+        
+        // Show headers immediately, even before files are loaded
+        this.updateDisplay();
+        
         this.loadFiles();
     }
 
