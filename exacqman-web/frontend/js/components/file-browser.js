@@ -404,15 +404,15 @@ class FileBrowser {
 
         // Select all checkbox
         const selectAllCheckbox = document.getElementById('select-all');
-        console.log('Setting up select all checkbox:', selectAllCheckbox);
         if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', (e) => {
-                console.log('Select all checkbox changed:', e.target.checked);
+            // Clone the node to remove all event listeners
+            const newCheckbox = selectAllCheckbox.cloneNode(true);
+            selectAllCheckbox.parentNode.replaceChild(newCheckbox, selectAllCheckbox);
+            
+            // Add fresh event listener
+            newCheckbox.addEventListener('change', (e) => {
                 this.handleSelectAll(e.target.checked);
             });
-            console.log('Select all event listener attached');
-        } else {
-            console.warn('Select all checkbox not found!');
         }
 
         // Individual file checkboxes (exclude select all checkbox and header row)
@@ -469,21 +469,13 @@ class FileBrowser {
      * Handle select all checkbox
      */
     handleSelectAll(checked) {
-        console.log('handleSelectAll called with checked:', checked);
-        console.log('filteredFiles.length:', this.filteredFiles.length);
-        console.log('filteredFiles:', this.filteredFiles);
-        
         if (checked) {
             this.filteredFiles.forEach(file => {
-                console.log('Adding file to selection:', file.filename);
                 this.selectedFiles.add(file.filename);
             });
         } else {
-            console.log('Clearing all selections');
             this.selectedFiles.clear();
         }
-        
-        console.log('selectedFiles after update:', Array.from(this.selectedFiles));
         
         this.updateSelectionDisplay();
         this.updateBulkActions();
