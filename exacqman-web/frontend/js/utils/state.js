@@ -35,12 +35,28 @@ class AppState {
      * Initialize default state
      */
     initializeState() {
-        // Set default datetime values (1 hour ago to now)
+        // Set default datetime values (1 hour ago to now) in local time
         const now = new Date();
         const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
         
-        this.state.defaultStartTime = oneHourAgo.toISOString().slice(0, 16);
-        this.state.defaultEndTime = now.toISOString().slice(0, 16);
+        // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+        this.state.defaultStartTime = this.formatDateTimeLocal(oneHourAgo);
+        this.state.defaultEndTime = this.formatDateTimeLocal(now);
+    }
+
+    /**
+     * Format date for datetime-local input
+     * @param {Date} date - Date object
+     * @returns {string} Formatted date string
+     */
+    formatDateTimeLocal(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
     /**
