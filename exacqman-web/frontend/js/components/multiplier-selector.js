@@ -129,11 +129,7 @@ class MultiplierSelector {
             return false;
         }
 
-        if (multiplier < 2 || multiplier > 50) {
-            this.showError('Multiplier must be between 2 and 50');
-            return false;
-        }
-
+        // Since this is a dropdown with predefined valid options, no range validation needed
         this.clearError();
         return true;
     }
@@ -220,7 +216,7 @@ class MultiplierSelector {
             value: multiplier,
             label: option ? option.label : 'Unknown',
             description: option ? option.description : '',
-            isValid: multiplier && multiplier >= 2 && multiplier <= 50
+            isValid: multiplier && multiplier >= 1 && multiplier <= 50
         };
     }
 
