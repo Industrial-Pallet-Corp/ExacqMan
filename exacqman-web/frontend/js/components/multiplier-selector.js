@@ -10,15 +10,16 @@ class MultiplierSelector {
         this.selectElement = document.getElementById('multiplier-select');
         
         this.multiplierOptions = [
-            { value: 2, label: '2x (Very Slow)', description: '2x speed - Very slow timelapse' },
-            { value: 5, label: '5x (Slow)', description: '5x speed - Slow timelapse' },
-            { value: 10, label: '10x (Normal)', description: '10x speed - Normal timelapse' },
-            { value: 15, label: '15x (Fast)', description: '15x speed - Fast timelapse' },
-            { value: 20, label: '20x (Very Fast)', description: '20x speed - Very fast timelapse' },
-            { value: 25, label: '25x (Ultra Fast)', description: '25x speed - Ultra fast timelapse' },
-            { value: 30, label: '30x (Extreme)', description: '30x speed - Extreme timelapse' },
-            { value: 40, label: '40x (Lightning)', description: '40x speed - Lightning fast' },
-            { value: 50, label: '50x (Maximum)', description: '50x speed - Maximum speed' }
+            { value: 1, label: '1x (Real Time)', description: '1x speed - Real time playback' },
+            { value: 2, label: '2x (Fast)', description: '2x speed - Fast timelapse' },
+            { value: 5, label: '5x (Faster)', description: '5x speed - Faster timelapse' },
+            { value: 10, label: '10x (Very Fast)', description: '10x speed - Very fast timelapse' },
+            { value: 15, label: '15x (Ultra Fast)', description: '15x speed - Ultra fast timelapse' },
+            { value: 20, label: '20x (Extreme)', description: '20x speed - Extreme timelapse' },
+            { value: 25, label: '25x (Lightning)', description: '25x speed - Lightning fast' },
+            { value: 30, label: '30x (Blazing)', description: '30x speed - Blazing fast' },
+            { value: 40, label: '40x (Supersonic)', description: '40x speed - Supersonic timelapse' },
+            { value: 50, label: '50x (Light Speed)', description: '50x speed - Light Speed timelapse' }
         ];
         
         this.init();
@@ -94,9 +95,9 @@ class MultiplierSelector {
     setDefaultValue() {
         if (!this.selectElement) return;
 
-        // Set default to 10x
-        this.selectElement.value = '10';
-        this.state.set('selectedMultiplier', 10);
+        // Set default to 50x
+        this.selectElement.value = '50';
+        this.state.set('selectedMultiplier', 50);
     }
 
     /**
@@ -270,7 +271,7 @@ class MultiplierSelector {
      * Add custom multiplier option
      */
     addCustomOption(value, label, description) {
-        if (value >= 2 && value <= 50 && !this.multiplierOptions.find(opt => opt.value === value)) {
+        if (value >= 1 && value <= 50 && !this.multiplierOptions.find(opt => opt.value === value)) {
             const option = { value, label, description };
             this.multiplierOptions.push(option);
             this.multiplierOptions.sort((a, b) => a.value - b.value);
@@ -283,7 +284,7 @@ class MultiplierSelector {
      */
     removeCustomOption(value) {
         const index = this.multiplierOptions.findIndex(opt => opt.value === value);
-        if (index > -1 && value !== 10) { // Don't remove default 10x
+        if (index > -1 && value !== 50) { // Don't remove default 50x
             this.multiplierOptions.splice(index, 1);
             this.populateOptions();
         }
@@ -296,13 +297,13 @@ class MultiplierSelector {
         const durationHours = durationMs / (1000 * 60 * 60);
         
         if (durationHours <= 1) {
-            return 2; // Very slow for short durations
+            return 2; // Fast for short durations
         } else if (durationHours <= 4) {
-            return 10; // Normal for medium durations
+            return 10; // Very fast for medium durations
         } else if (durationHours <= 12) {
-            return 20; // Fast for long durations
+            return 20; // Extreme for long durations
         } else {
-            return 30; // Very fast for very long durations
+            return 30; // Blazing for very long durations
         }
     }
 

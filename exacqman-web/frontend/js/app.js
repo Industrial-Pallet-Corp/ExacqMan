@@ -31,7 +31,6 @@ class ExacqManApp {
         // Bind methods to preserve context
         this.handleConfigChange = this.handleConfigChange.bind(this);
         this.handleExtractionSubmit = this.handleExtractionSubmit.bind(this);
-        this.handleFileRefresh = this.handleFileRefresh.bind(this);
         this.handleFileDownload = this.handleFileDownload.bind(this);
         this.handleFileDelete = this.handleFileDelete.bind(this);
         this.removeJob = this.removeJob.bind(this);
@@ -97,11 +96,6 @@ class ExacqManApp {
             extractionForm.addEventListener('submit', this.handleExtractionSubmit);
         }
 
-        // File refresh button
-        const refreshFilesBtn = document.getElementById('refresh-files');
-        if (refreshFilesBtn) {
-            refreshFilesBtn.addEventListener('click', this.handleFileRefresh);
-        }
 
         // Set default datetime values
         this.setDefaultDateTimeValues();
@@ -290,16 +284,6 @@ class ExacqManApp {
         }
     }
 
-    /**
-     * Handle file refresh
-     */
-    async handleFileRefresh() {
-        if (this.fileBrowser) {
-            this.fileBrowser.loadFiles();
-        } else {
-            await this.loadProcessedVideos();
-        }
-    }
 
     /**
      * Handle file download

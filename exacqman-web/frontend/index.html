@@ -64,15 +64,17 @@
                 <div class="form-group">
                     <label for="multiplier-select">Timelapse Multiplier:</label>
                     <select id="multiplier-select" class="form-control" required>
-                        <option value="10">10x (Default)</option>
-                        <option value="2">2x</option>
-                        <option value="5">5x</option>
-                        <option value="15">15x</option>
-                        <option value="20">20x</option>
-                        <option value="25">25x</option>
-                        <option value="30">30x</option>
-                        <option value="40">40x</option>
-                        <option value="50">50x</option>
+                        <option value="50">50x (Default)</option>
+                        <option value="1">1x (Real Time)</option>
+                        <option value="2">2x (Fast)</option>
+                        <option value="5">5x (Faster)</option>
+                        <option value="10">10x (Very Fast)</option>
+                        <option value="15">15x (Ultra Fast)</option>
+                        <option value="20">20x (Extreme)</option>
+                        <option value="25">25x (Lightning)</option>
+                        <option value="30">30x (Blazing)</option>
+                        <option value="40">40x (Supersonic)</option>
+                        <option value="50">50x (Light Speed)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -96,10 +98,6 @@
         <section class="files-panel" id="files-panel">
             <div class="files-header">
                 <h2>Extracted Footage</h2>
-                <button id="refresh-files" class="btn btn-secondary">
-                    <span class="btn-text">Refresh</span>
-                    <span class="btn-loading" style="display: none;">Loading...</span>
-                </button>
             </div>
             <div class="files-list" id="files-list">
                 <div class="no-files">Loading files...</div>
