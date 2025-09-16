@@ -528,7 +528,7 @@ label {
 
 .file-table-row {
     display: grid;
-    grid-template-columns: 40px 2fr 1fr 1fr 1.5fr 120px;
+    grid-template-columns: 40px 2fr 1fr 1fr 1.5fr 180px;
     align-items: center;
     min-height: 48px;
     border-bottom: 1px solid var(--gray-100);
@@ -541,6 +541,16 @@ label {
 
 .file-table-row.selected {
     background-color: rgba(120, 47, 64, 0.05);
+}
+
+.no-files-row {
+    display: grid;
+    grid-template-columns: 40px 2fr 1fr 1fr 1.5fr 180px;
+    align-items: center;
+    padding: var(--spacing-4);
+    text-align: center;
+    color: var(--gray-500);
+    font-style: italic;
 }
 
 .file-table-cell {

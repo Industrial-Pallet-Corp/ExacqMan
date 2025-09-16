@@ -282,12 +282,7 @@ class FileBrowser {
     updateDisplay() {
         if (!this.filesListElement) return;
 
-        if (this.filteredFiles.length === 0) {
-            this.filesListElement.innerHTML = '<div class="no-files">No files found</div>';
-            return;
-        }
-
-        // Create table header
+        // Always show table headers, even when no files
         const tableHTML = `
             <div class="file-table">
                 <div class="file-table-header">
@@ -311,7 +306,10 @@ class FileBrowser {
                     </div>
                 </div>
                 <div class="file-table-body">
-                    ${this.filteredFiles.map(file => this.createFileRow(file)).join('')}
+                    ${this.filteredFiles.length === 0 
+                        ? '<div class="no-files-row"><div class="file-table-cell" colspan="6">No files found</div></div>'
+                        : this.filteredFiles.map(file => this.createFileRow(file)).join('')
+                    }
                 </div>
             </div>
             <div class="file-table-footer">
