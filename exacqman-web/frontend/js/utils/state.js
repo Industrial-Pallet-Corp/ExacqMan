@@ -23,7 +23,6 @@ class AppState {
             lastFileRefresh: null,
             
             // UI state
-            isConnected: false,
             isLoading: false,
             currentError: null
         };
@@ -287,13 +286,6 @@ class AppState {
 
     // UI state management
 
-    /**
-     * Set connection status
-     * @param {boolean} isConnected - Connection status
-     */
-    setConnectionStatus(isConnected) {
-        this.set('isConnected', isConnected);
-    }
 
     /**
      * Set loading state
@@ -333,7 +325,6 @@ class AppState {
             jobHistory: [],
             processedVideos: [],
             lastFileRefresh: null,
-            isConnected: false,
             isLoading: false,
             currentError: null
         };
@@ -362,7 +353,6 @@ class AppState {
             activeJobsCount: this.state.activeJobs.size,
             historyJobsCount: this.state.jobHistory.length,
             videosCount: this.state.processedVideos.length,
-            isConnected: this.state.isConnected,
             isLoading: this.state.isLoading,
             hasError: !!this.state.currentError
         };

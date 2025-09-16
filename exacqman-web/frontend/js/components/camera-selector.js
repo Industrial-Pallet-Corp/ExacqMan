@@ -186,9 +186,8 @@ class CameraSelector {
     isFormReady() {
         const configSelected = this.configSelect && this.configSelect.value;
         const cameraSelected = this.selectElement && this.selectElement.value;
-        const isConnected = this.state.get('isConnected');
         
-        return configSelected && cameraSelected && isConnected;
+        return configSelected && cameraSelected;
     }
 
     /**

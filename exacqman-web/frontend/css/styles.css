@@ -135,35 +135,6 @@ body {
     margin: 0;
 }
 
-.connection-status {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-}
-
-.status-indicator {
-    padding: var(--spacing-2) var(--spacing-3);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    background-color: rgba(255, 255, 255, 0.2);
-    transition: var(--transition-fast);
-}
-
-.status-indicator.connected {
-    background-color: var(--brand-green);
-    color: white;
-}
-
-.status-indicator.disconnected {
-    background-color: var(--brand-grey);
-    color: white;
-}
-
-.status-indicator.error {
-    background-color: var(--error-color);
-    color: white;
-}
 
 /* Main Container */
 .main-container {
@@ -212,11 +183,6 @@ body {
 
 .form-row .form-group:last-child {
     margin-bottom: 0;
-}
-
-/* Align extract button with dropdown by adding top margin to match label height */
-.form-row .form-group:last-child .btn {
-    margin-top: calc(var(--spacing-2) + (var(--font-size-sm) * 1.6) + 2px);
 }
 
 label {

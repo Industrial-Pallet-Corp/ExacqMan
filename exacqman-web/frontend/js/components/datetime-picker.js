@@ -240,9 +240,8 @@ class DateTimePicker {
         const cameraSelected = this.state.get('selectedCamera');
         const startValid = this.startInput.value && this.validateStartTime();
         const endValid = this.endInput.value && this.validateEndTime();
-        const isConnected = this.state.get('isConnected');
         
-        return configSelected && cameraSelected && startValid && endValid && isConnected;
+        return configSelected && cameraSelected && startValid && endValid;
     }
 
     /**

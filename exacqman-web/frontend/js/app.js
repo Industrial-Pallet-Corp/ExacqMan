@@ -111,10 +111,6 @@ class ExacqManApp {
      * Set up state change listeners
      */
     setupStateListeners() {
-        // Connection status
-        this.state.subscribe('isConnected', (isConnected) => {
-            this.updateConnectionStatus(isConnected);
-        });
 
         // Loading state
         this.state.subscribe('isLoading', (isLoading) => {
@@ -143,7 +139,6 @@ class ExacqManApp {
         try {
             this.state.setLoading(true);
             const isConnected = await this.api.testConnection();
-            this.state.setConnectionStatus(isConnected);
             
             if (!isConnected) {
                 throw new Error('Unable to connect to server');
@@ -151,7 +146,6 @@ class ExacqManApp {
             
         } catch (error) {
             console.error('Connection test failed:', error);
-            this.state.setConnectionStatus(false);
             throw error;
         } finally {
             this.state.setLoading(false);
@@ -437,16 +431,6 @@ class ExacqManApp {
 
     // UI update methods
 
-    /**
-     * Update connection status display
-     */
-    updateConnectionStatus(isConnected) {
-        const statusElement = document.getElementById('connection-status');
-        if (statusElement) {
-            statusElement.textContent = isConnected ? 'Connected' : 'Disconnected';
-            statusElement.className = `status-indicator ${isConnected ? 'connected' : 'error'}`;
-        }
-    }
 
     /**
      * Update loading state

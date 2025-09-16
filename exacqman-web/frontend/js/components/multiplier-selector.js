@@ -155,9 +155,8 @@ class MultiplierSelector {
         const configSelected = this.state.get('currentConfig');
         const cameraSelected = this.state.get('selectedCamera');
         const multiplierSelected = this.state.get('selectedMultiplier');
-        const isConnected = this.state.get('isConnected');
         
-        return configSelected && cameraSelected && multiplierSelected && isConnected;
+        return configSelected && cameraSelected && multiplierSelected;
     }
 
     /**
