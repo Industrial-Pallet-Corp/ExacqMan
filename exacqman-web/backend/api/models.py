@@ -27,14 +27,14 @@ class ExtractRequest(BaseModel):
     camera_alias: str = Field(..., description="Camera alias from config")
     start_datetime: Union[datetime, str] = Field(..., description="Start datetime for video extraction")
     end_datetime: Union[datetime, str] = Field(..., description="End datetime for video extraction")
-    timelapse_multiplier: int = Field(10, description="Timelapse multiplier (2-50)")
+    timelapse_multiplier: int = Field(10, description="Timelapse multiplier (1-50)")
     config_file: str = Field(..., description="Path to config file")
     server: Optional[str] = Field(None, description="Server location initials")
     
     @validator('timelapse_multiplier')
     def validate_multiplier(cls, v):
-        if not (2 <= v <= 50):
-            raise ValueError('Timelapse multiplier must be between 2 and 50')
+        if not (1 <= v <= 50):
+            raise ValueError('Timelapse multiplier must be between 1 and 50')
         return v
     
     @validator('start_datetime', pre=True)

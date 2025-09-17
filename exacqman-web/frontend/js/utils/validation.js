@@ -67,8 +67,8 @@ class ValidationUtils {
         // Timelapse multiplier validation
         if (data.timelapse_multiplier !== undefined) {
             const multiplier = parseInt(data.timelapse_multiplier);
-            if (isNaN(multiplier) || multiplier < 2 || multiplier > 50) {
-                errors.push('Timelapse multiplier must be between 2 and 50');
+            if (isNaN(multiplier) || multiplier < 1 || multiplier > 50) {
+                errors.push('Timelapse multiplier must be between 1 and 50');
             }
         }
 

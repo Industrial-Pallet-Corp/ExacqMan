@@ -18,7 +18,7 @@ class ConfigService:
     def __init__(self):
         """Initialize the configuration service."""
         self.working_directory = Path(__file__).parent.parent.parent.parent  # ExacqMan root
-        self.timelapse_options = [2, 5, 10, 15, 20, 25, 30, 40, 50]
+        self.timelapse_options = [1, 2, 5, 10, 15, 20, 25, 30, 40, 50]
     
     def get_available_cameras(self, config_file: str) -> List[CameraInfo]:
         """
