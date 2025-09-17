@@ -1,10 +1,18 @@
-<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
-  <!-- Placeholder for Industrial Pallet Corp. logo -->
-  <rect width="200" height="80" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
-  <text x="100" y="45" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#666">
-    LOGO PLACEHOLDER
-  </text>
-  <text x="100" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#999">
-    Replace with actual logo
-  </text>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Components" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 7.53 3.95">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #7b303f;
+      }
+    </style>
+  </defs>
+  <g id="bc2170b2-d4e1-4f60-9bac-ed8fa164af6f_1" data-name="bc2170b2-d4e1-4f60-9bac-ed8fa164af6f@1">
+    <rect class="cls-1" x="0" y="1.73" width="1.21" height="2.21"/>
+    <polygon class="cls-1" points="2.76 .8 3.92 .8 3.96 1.41 5.07 1.41 5.12 .8 5.12 0 1.51 0 1.51 .68 1.51 .68 1.51 1.41 2.71 1.41 2.76 .8"/>
+    <polygon class="cls-1" points="6.28 .8 6.33 1.41 7.53 1.41 7.53 0 5.45 0 5.45 .8 6.28 .8"/>
+    <polygon class="cls-1" points="6.28 3.14 5.01 3.14 4.99 2.86 3.92 2.86 3.92 3.14 3.92 3.95 7.53 3.95 7.53 3.54 7.53 3.08 7.53 2.54 6.33 2.54 6.28 3.14"/>
+    <polygon class="cls-1" points="2.71 2.54 4.99 2.54 5.05 1.73 1.51 1.73 1.51 2.18 1.51 2.18 1.51 3.95 2.71 3.95 2.71 2.54"/>
+    <polygon class="cls-1" points="1.21 .8 1.21 0 0 0 0 1.41 1.16 1.41 1.21 .8"/>
+  </g>
 </svg>
