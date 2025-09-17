@@ -274,11 +274,11 @@ class FileBrowser {
                 </div>
                     <div class="file-list-footer">
                         <div class="file-bulk-actions">
-                            <button id="bulk-download" class="btn btn-secondary" disabled>
-                                Download Selected
-                            </button>
-                            <button id="bulk-delete" class="btn btn-danger" disabled>
+                            <button id="bulk-delete" class="btn btn-secondary" disabled>
                                 Delete Selected
+                            </button>
+                            <button id="bulk-download" class="btn btn-primary" disabled>
+                                Download Selected
                             </button>
                         </div>
                         <div class="mobile-download-note" style="display: none;">Bulk downloads not supported on mobile</div>
@@ -338,11 +338,11 @@ class FileBrowser {
                         </div>
                     </div>
                     <div class="file-item-actions">
-                        <button class="btn btn-sm btn-secondary download-btn" data-filename="${file.filename}">
-                            Download
-                        </button>
-                        <button class="btn btn-sm btn-danger delete-btn" data-filename="${file.filename}">
+                        <button class="btn btn-sm btn-secondary delete-btn" data-filename="${file.filename}">
                             Delete
+                        </button>
+                        <button class="btn btn-sm btn-primary download-btn" data-filename="${file.filename}">
+                            Download
                         </button>
                     </div>
                 </div>
