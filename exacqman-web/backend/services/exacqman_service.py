@@ -182,7 +182,9 @@ class ExacqManService:
         """
         date_str = request.start_datetime.strftime("%Y-%m-%d")
         time_str = self._format_time_for_filename(request.start_datetime)
-        return f"{date_str}_{time_str}_{request.camera_alias}_{request.timelapse_multiplier}x"
+        # Sanitize camera alias: lowercase and replace spaces with hyphens
+        sanitized_camera = request.camera_alias.lower().replace(" ", "-")
+        return f"{date_str}_{time_str}_{sanitized_camera}_{request.timelapse_multiplier}x"
     
     def _format_time_for_filename(self, datetime_obj) -> str:
         """
@@ -288,6 +290,8 @@ class ExacqManService:
             
             # Look for the final compressed file with any compression level
             base_name = filename.replace('.mp4', '')  # Remove .mp4 if present
+            # Sanitize base_name to match what CLI creates (spaces become underscores)
+            base_name = base_name.replace(" ", "_")
             source_path = None
             
             # Try to find the final compressed file with libx264 pattern
