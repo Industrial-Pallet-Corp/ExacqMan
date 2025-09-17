@@ -5,6 +5,7 @@ from pprint import pprint
 from tqdm import tqdm
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import sys
 
 
 class ExacqvisionError(Exception):
@@ -236,7 +237,9 @@ class Exacqvision:
             unit='iB',
             unit_scale=True,
             unit_divisor=1024,
-            leave=False
+            leave=False,
+            disable=False,
+            file=sys.stdout
             # ncols=80,  # Adjust the width of the progress bar
         ) as bar:
             # Iterate over the response data in chunks and update the progress bar

@@ -362,7 +362,7 @@ class JobPoller {
         this.onUpdate = onUpdate;
         this.activeJobs = new Set();
         this.intervalId = null;
-        this.pollInterval = 2000; // 2 seconds
+        this.pollInterval = 1000; // 1 second for real-time progress updates
     }
 
     start(jobId) {

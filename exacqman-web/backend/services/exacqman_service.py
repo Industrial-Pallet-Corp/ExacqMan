@@ -7,7 +7,8 @@ Handles interaction with the ExacqMan CLI tool for video processing operations.
 import asyncio
 import subprocess
 import logging
-from typing import Dict, Any, Optional
+import time
+from typing import Dict, Any, Callable
 from pathlib import Path
 import shutil
 
@@ -25,18 +26,16 @@ class ExacqManService:
         self.exacqman_path = str(Path(__file__).parent.parent.parent.parent / "exacqman.py")
         self.working_directory = Path(__file__).parent.parent.parent.parent  # ExacqMan root directory
     
-    async def extract_video(self, request: ExtractRequest) -> Dict[str, Any]:
+    async def extract_video_with_progress(self, request: ExtractRequest, progress_callback: Callable[[int, str], None]) -> Dict[str, Any]:
         """
-        Extract video from Exacqvision server with timelapse and compression.
+        Extract video with real-time progress tracking.
         
         Args:
             request: ExtractRequest containing all necessary parameters
+            progress_callback: Function to call with progress updates (progress_percent, message)
             
         Returns:
             Dict containing result information
-            
-        Raises:
-            subprocess.CalledProcessError: If the CLI command fails
         """
         try:
             # Convert datetime objects to the format expected by ExacqMan CLI
@@ -69,24 +68,89 @@ class ExacqManService:
             logger.info(f"Working directory: {self.working_directory}")
             logger.info(f"Config file: {request.config_file}")
             
-            # Run the command asynchronously
+            # Initial progress
+            progress_callback(0, "Starting video extraction...")
+            
+            # Run the command asynchronously with real-time output parsing
             process = await asyncio.create_subprocess_exec(
                 *cmd_args,
                 cwd=self.working_directory,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.STDOUT  # Combine stderr with stdout
             )
             
-            stdout, stderr = await process.communicate()
+            # Parse output in real-time
+            progress_percent = 0
+            last_incremental_time = time.time()
+            
+            while True:
+                # Check for incremental progress first (every 2 seconds)
+                current_time = time.time()
+                if current_time - last_incremental_time >= 2.0 and progress_percent < 90:
+                    # Calculate next milestone
+                    next_milestone = 20 if progress_percent < 20 else (30 if progress_percent < 30 else 90)
+                    increment = min(2, next_milestone - progress_percent)
+                    if increment > 0:
+                        progress_percent += increment
+                        last_incremental_time = current_time
+                        
+                        # Update message based on current stage
+                        if progress_percent < 20:
+                            message = "Footage located..."
+                        elif progress_percent < 30:
+                            message = "Footage extracted successfully..."
+                        else:
+                            message = "Processing footage..."
+                        
+                        logger.info(f"Incremental progress: {message} ({progress_percent}%)")
+                        progress_callback(progress_percent, message)
+                
+                # Read CLI output with timeout
+                try:
+                    line = await asyncio.wait_for(process.stdout.readline(), timeout=0.1)
+                    if not line:
+                        break
+                    
+                    # Decode bytes to string
+                    line = line.decode('utf-8').strip()
+                    if not line:
+                        continue
+                    
+                    logger.info(f"CLI Output: {line}")
+                    
+                    # Check for milestone updates
+                    if "Export ready" in line:
+                        progress_percent = 10
+                        last_incremental_time = time.time()
+                        progress_callback(progress_percent, "Footage located...")
+                    elif "Video saved successfully" in line:
+                        progress_percent = 20
+                        last_incremental_time = time.time()
+                        progress_callback(progress_percent, "Footage extracted successfully...")
+                    elif "Processing Video" in line:
+                        progress_percent = 30
+                        last_incremental_time = time.time()
+                        progress_callback(progress_percent, "Processing footage...")
+                    elif "Beginning Video compression" in line:
+                        progress_percent = 90
+                        last_incremental_time = time.time()
+                        progress_callback(progress_percent, "Compressing footage...")
+                    elif "Video successfully compressed" in line:
+                        progress_callback(100, "Video processing completed!")
+                        break
+                        
+                except asyncio.TimeoutError:
+                    # No output available, continue with incremental progress
+                    continue
+            
+            # Wait for process to complete
+            await process.wait()
             
             if process.returncode != 0:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                logger.error(f"Extract command failed: {error_msg}")
+                error_msg = f"Extract command failed with return code {process.returncode}"
+                logger.error(error_msg)
+                progress_callback(0, f"Error: {error_msg}")
                 raise subprocess.CalledProcessError(process.returncode, cmd_args, error_msg)
-            
-            # Parse output for result information
-            output = stdout.decode() if stdout else ""
-            logger.info(f"Extract command completed: {output}")
             
             # Move final output to exports directory
             final_path = await self._move_to_exports(output_filename)
@@ -98,20 +162,14 @@ class ExacqManService:
                 "operation": "extract",
                 "output_file": final_path,
                 "filename": Path(final_path).name,
-                "status": "completed",
-                "message": "Video extraction completed successfully",
-                "cleanup_completed": True
+                "success": True
             }
             
         except Exception as e:
-            logger.error(f"Error in extract_video: {str(e)}")
-            # Try to clean up even if extraction failed
-            try:
-                await self._cleanup_intermediate_files(output_filename)
-            except Exception as cleanup_error:
-                logger.error(f"Cleanup failed after extraction error: {cleanup_error}")
+            logger.error(f"Error in extract_video_with_progress: {str(e)}")
+            progress_callback(0, f"Error: {str(e)}")
             raise
-    
+
     def _generate_output_filename(self, request: ExtractRequest) -> str:
         """
         Generate a consistent output filename for the extract operation.

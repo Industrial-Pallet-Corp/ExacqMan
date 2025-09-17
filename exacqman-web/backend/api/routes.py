@@ -255,20 +255,27 @@ async def delete_video(filename: str) -> ApiResponse:
 
 async def process_extract_job(job_id: str, request: ExtractRequest):
     """
-    Process an extract job in the background.
+    Process an extract job in the background with real-time progress tracking.
     
     Args:
         job_id: Unique job identifier
         request: ExtractRequest object
     """
+    def update_progress(progress: int, message: str):
+        """Update job progress in real-time."""
+        if job_id in active_jobs:
+            active_jobs[job_id]["progress"] = progress
+            active_jobs[job_id]["message"] = message
+            logger.info(f"Job {job_id}: {message} ({progress}%)")
+    
     try:
         # Update job status
         active_jobs[job_id]["status"] = "processing"
         active_jobs[job_id]["message"] = "Starting video extraction..."
-        active_jobs[job_id]["progress"] = 10
+        active_jobs[job_id]["progress"] = 0
         
-        # Run the extraction
-        result = await exacqman_service.extract_video(request)
+        # Run the extraction with progress tracking
+        result = await exacqman_service.extract_video_with_progress(request, update_progress)
         
         # Update job status with success
         active_jobs[job_id]["status"] = "completed"
