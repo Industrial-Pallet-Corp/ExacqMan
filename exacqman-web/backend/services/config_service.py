@@ -43,6 +43,7 @@ class ConfigService:
                 raise FileNotFoundError(f"Configuration file not found: {config_file}")
             
             config = configparser.ConfigParser()
+            config.optionxform = str  # Preserve original case
             config.read(config_path)
             
             if 'Cameras' not in config:
@@ -87,6 +88,7 @@ class ConfigService:
                 raise FileNotFoundError(f"Configuration file not found: {config_file}")
             
             config = configparser.ConfigParser()
+            config.optionxform = str  # Preserve original case
             config.read(config_path)
             
             if 'Network' not in config:
@@ -203,6 +205,7 @@ class ConfigService:
             
             # Try to parse the config file
             config = configparser.ConfigParser()
+            config.optionxform = str  # Preserve original case
             config.read(config_path)
             
             # Check for required sections
