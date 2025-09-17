@@ -54,7 +54,7 @@ class ConfigService:
                 cameras.append(CameraInfo(
                     alias=alias,
                     id=camera_id,
-                    description=f"Camera {alias} (ID: {camera_id})"
+                    description=f"{alias} (ID: {camera_id})"
                 ))
             
             logger.info(f"Loaded {len(cameras)} cameras from {config_file}")

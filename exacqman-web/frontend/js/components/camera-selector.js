@@ -214,7 +214,7 @@ class CameraSelector {
                 // Add the current selection back as a temporary option
                 const option = document.createElement('option');
                 option.value = currentValue;
-                option.textContent = `Camera ${currentValue}`;
+                option.textContent = currentValue;
                 option.selected = true;
                 this.selectElement.appendChild(option);
             }
