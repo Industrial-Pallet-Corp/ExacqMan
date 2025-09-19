@@ -70,7 +70,7 @@ class DateUtils {
         const maxDuration = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
         
         if (duration > maxDuration) {
-            return { valid: false, message: 'Duration cannot exceed 24 hours' };
+            return { valid: false, message: 'Duration cannot exceed 4 hours' };
         }
         
         return { valid: true };
