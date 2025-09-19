@@ -132,7 +132,7 @@ class ExacqManService:
                         last_incremental_time = time.time()
                         progress_callback(progress_percent, "Processing footage...")
                     elif "Beginning Video compression" in line:
-                        progress_percent = 90
+                        progress_percent = 80
                         last_incremental_time = time.time()
                         progress_callback(progress_percent, "Compressing footage...")
                     elif "Video successfully compressed" in line:

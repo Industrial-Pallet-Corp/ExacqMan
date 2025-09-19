@@ -48,9 +48,9 @@ class ValidationUtils {
                     errors.push('End time must be after start time');
                 }
 
-                // Check duration (max 24 hours)
+                // Check duration (max 4 hours)
                 const duration = endDate - startDate;
-                const maxDuration = 24 * 60 * 60 * 1000; // 24 hours
+                const maxDuration = 4 * 60 * 60 * 1000; // 4 hours
 
                 if (duration > maxDuration) {
                     errors.push('Duration cannot exceed 24 hours');
