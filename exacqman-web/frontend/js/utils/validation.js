@@ -53,7 +53,7 @@ class ValidationUtils {
                 const maxDuration = 4 * 60 * 60 * 1000; // 4 hours
 
                 if (duration > maxDuration) {
-                    errors.push('Duration cannot exceed 24 hours');
+                    errors.push('Duration must not exceed 24 hours');
                 }
 
                 // Check if dates are in the future
