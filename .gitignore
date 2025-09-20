@@ -200,6 +200,7 @@ yarn-error.log*
 # Temporary files
 *.tmp
 *.temp
+*.left_off
 
 # Configuration files (except default.config)
 *.config
