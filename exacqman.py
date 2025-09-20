@@ -377,7 +377,7 @@ def process_video(original_video_path: str, output_video_path: str = None, times
     font_scale = calculate_font_scale(crop_width)
 
     print(f'Processing Video ({output_video_path})...')
-    pbar = tqdm(total=total_frames, leave=False, disable=False, file=sys.stdout)
+    pbar = tqdm(total=total_frames, leave=False)
     # Use crop dimensions for output video
     writer = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (crop_width, crop_height))
     count = 0
