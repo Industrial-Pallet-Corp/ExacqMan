@@ -69,22 +69,9 @@ class DateUtils {
         const duration = end - start;
         const maxDuration = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
         
-        // Debug logging
-        console.log('validateRange Debug:');
-        console.log('  Start:', start.toISOString());
-        console.log('  End:', end.toISOString());
-        console.log('  Duration (ms):', duration);
-        console.log('  Duration (hours):', duration / (60 * 60 * 1000));
-        console.log('  Max Duration (ms):', maxDuration);
-        console.log('  Max Duration (hours):', maxDuration / (60 * 60 * 1000));
-        console.log('  Duration > Max?', duration > maxDuration);
-        
         if (duration > maxDuration) {
-            console.log('  VALIDATION FAILED: Duration exceeds 4 hours');
             return { valid: false, message: 'Duration cannot exceed 4 hours' };
         }
-        
-        console.log('  VALIDATION PASSED: Duration is within 4 hours');
         
         return { valid: true };
     }
