@@ -90,6 +90,7 @@ class DateTimePicker {
      */
     handleStartChange() {
         this.validateStartTime();
+        this.validateBoth(); // Also validate the range
         this.updateState();
         this.updateExtractionButton();
     }
@@ -99,6 +100,7 @@ class DateTimePicker {
      */
     handleEndChange() {
         this.validateEndTime();
+        this.validateBoth(); // Also validate the range
         this.updateState();
         this.updateExtractionButton();
     }
@@ -185,13 +187,11 @@ class DateTimePicker {
     validateBoth() {
         const startValid = this.validateStartTime();
         const endValid = this.validateEndTime();
-        
+
         if (startValid && endValid) {
             // Final validation of the range
-            const startDate = DateUtils.parseFromInput(this.startInput.value);
-            const endDate = DateUtils.parseFromInput(this.endInput.value);
-            
             const validation = DateUtils.validateRange(this.startInput.value, this.endInput.value);
+            
             if (!validation.valid) {
                 this.showError(this.endInput, validation.message);
                 return false;
@@ -238,10 +238,73 @@ class DateTimePicker {
     isFormReady() {
         const configSelected = this.state.get('currentConfig');
         const cameraSelected = this.state.get('selectedCamera');
-        const startValid = this.startInput.value && this.validateStartTime();
-        const endValid = this.endInput.value && this.validateEndTime();
         
-        return configSelected && cameraSelected && startValid && endValid;
+        // Check if fields have values and are valid without calling validation methods
+        // (which would clear errors)
+        const startValue = this.startInput.value;
+        const endValue = this.endInput.value;
+        
+        // Check individual field validity without clearing errors
+        const startValid = startValue && this.isStartTimeValid();
+        const endValid = endValue && this.isEndTimeValid();
+        
+        // Also check range validation if both times are valid
+        let rangeValid = true;
+        if (startValid && endValid) {
+            const validation = DateUtils.validateRange(this.startInput.value, this.endInput.value);
+            rangeValid = validation.valid;
+        }
+
+        const formReady = configSelected && cameraSelected && startValid && endValid && rangeValid;
+
+
+        return formReady;
+    }
+
+    /**
+     * Check if start time is valid without clearing errors
+     */
+    isStartTimeValid() {
+        const startValue = this.startInput.value;
+        if (!startValue) return false;
+
+        const startDate = DateUtils.parseFromInput(startValue);
+        if (isNaN(startDate.getTime())) return false;
+
+        const now = new Date();
+        if (startDate > now) return false;
+
+        // Check if end time is valid and start is before end
+        const endValue = this.endInput.value;
+        if (endValue) {
+            const endDate = DateUtils.parseFromInput(endValue);
+            if (!isNaN(endDate.getTime()) && endDate <= startDate) return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if end time is valid without clearing errors
+     */
+    isEndTimeValid() {
+        const endValue = this.endInput.value;
+        if (!endValue) return false;
+
+        const endDate = DateUtils.parseFromInput(endValue);
+        if (isNaN(endDate.getTime())) return false;
+
+        const now = new Date();
+        if (endDate > now) return false;
+
+        // Check if start time is valid and end is after start
+        const startValue = this.startInput.value;
+        if (startValue) {
+            const startDate = DateUtils.parseFromInput(startValue);
+            if (!isNaN(startDate.getTime()) && endDate <= startDate) return false;
+        }
+
+        return true;
     }
 
     /**
