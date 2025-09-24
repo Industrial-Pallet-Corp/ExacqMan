@@ -93,6 +93,11 @@ class AppState {
         const oldValue = this.state[key];
         this.state[key] = value;
         
+        // Debug logging for state changes
+        if (key === 'cameras' || key === 'activeJobs') {
+            console.log('[DEBUG] State set called - key:', key, 'value:', value, 'oldValue:', oldValue);
+        }
+        
         // Notify listeners
         this.notifyListeners(key, value, oldValue);
     }
@@ -215,6 +220,7 @@ class AppState {
      * @param {Object} statusData - Status data
      */
     updateJobStatus(jobId, statusData) {
+        console.log('[DEBUG] State updateJobStatus called with jobId:', jobId, 'statusData:', statusData);
         const jobs = new Map(this.state.activeJobs);
         const job = jobs.get(jobId);
         
@@ -225,6 +231,7 @@ class AppState {
             
             // Move completed/failed jobs to history
             if (statusData.status === 'completed' || statusData.status === 'failed') {
+                console.log('[DEBUG] State updateJobStatus - moving job to history:', jobId);
                 this.moveJobToHistory(jobId, updatedJob);
             }
         }

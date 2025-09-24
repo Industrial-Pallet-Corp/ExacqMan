@@ -70,6 +70,7 @@ class CameraSelector {
      * Handle configuration change
      */
     async handleConfigChange(configFile) {
+        console.log('[DEBUG] CameraSelector handleConfigChange called with:', configFile);
         if (!configFile) {
             this.clearCameras();
             return;
@@ -78,6 +79,7 @@ class CameraSelector {
         try {
             this.state.setLoading(true);
             const cameras = await this.api.getCameras(configFile);
+            console.log('[DEBUG] CameraSelector handleConfigChange - loaded cameras:', cameras);
             this.state.updateCameras(cameras);
         } catch (error) {
             console.error('Failed to load cameras:', error);
@@ -95,6 +97,9 @@ class CameraSelector {
         if (cameraAlias) {
             this.state.set('selectedCamera', cameraAlias);
             this.clearError();
+            
+            // Save preference to localStorage
+            window.LocalStorageService.savePreference('camera', cameraAlias);
         } else {
             this.state.set('selectedCamera', null);
         }
@@ -111,28 +116,42 @@ class CameraSelector {
 
         // Preserve current selection
         const currentValue = this.selectElement.value;
-        console.log('CameraSelector updateCameraList - preserving value:', currentValue);
+        console.log('[DEBUG] CameraSelector updateCameraList - preserving value:', currentValue);
+        console.log('[DEBUG] CameraSelector updateCameraList - cameras received:', cameras);
 
         // Clear existing options
         this.selectElement.innerHTML = '<option value="">Select camera...</option>';
         
         if (!cameras || cameras.length === 0) {
+            console.log('[DEBUG] CameraSelector updateCameraList - no cameras available');
             this.selectElement.innerHTML = '<option value="">No cameras available</option>';
             this.selectElement.disabled = true;
             return;
         }
 
+        console.log('[DEBUG] CameraSelector updateCameraList - adding', cameras.length, 'camera options');
+        console.log('[DEBUG] CameraSelector updateCameraList - cameras array:', cameras);
+
         // Add camera options
-        cameras.forEach(camera => {
+        cameras.forEach((camera, index) => {
+            console.log(`[DEBUG] CameraSelector updateCameraList - adding camera ${index}:`, camera);
             const option = document.createElement('option');
             option.value = camera.alias;
             option.textContent = camera.description || camera.alias;
             option.dataset.cameraId = camera.id;
             this.selectElement.appendChild(option);
+            console.log(`[DEBUG] CameraSelector updateCameraList - added option:`, option);
         });
 
         this.selectElement.disabled = false;
         this.selectElement.required = true;
+        
+        console.log('[DEBUG] CameraSelector updateCameraList - final dropdown options:', this.selectElement.options.length);
+        console.log('[DEBUG] CameraSelector updateCameraList - dropdown HTML:', this.selectElement.innerHTML);
+        
+        // Try to load saved preference first
+        const savedCamera = window.LocalStorageService.loadPreference('camera', null);
+        const preferredCamera = savedCamera && cameras.some(camera => camera.alias === savedCamera) ? savedCamera : null;
         
         // Auto-select if only one camera
         if (cameras.length === 1) {
@@ -140,7 +159,13 @@ class CameraSelector {
             this.handleCameraChange(cameras[0].alias);
             console.log('Auto-selected camera:', cameras[0].alias);
         }
-        // Restore selection if it was valid (only if not auto-selected)
+        // Use saved preference if available and valid
+        else if (preferredCamera) {
+            this.selectElement.value = preferredCamera;
+            this.handleCameraChange(preferredCamera);
+            console.log('Restored saved camera preference:', preferredCamera);
+        }
+        // Restore current selection if it was valid (fallback)
         else if (currentValue && cameras.some(camera => camera.alias === currentValue)) {
             this.selectElement.value = currentValue;
             console.log('CameraSelector updateCameraList - restored value:', currentValue);

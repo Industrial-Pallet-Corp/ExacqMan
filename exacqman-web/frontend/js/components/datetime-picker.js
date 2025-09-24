@@ -79,6 +79,8 @@ class DateTimePicker {
         const now = new Date();
         const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
         
+        console.log('[DEBUG] DateTimePicker setDefaultValues - setting start:', oneHourAgo, 'end:', now);
+        
         this.startInput.value = DateUtils.formatForInput(oneHourAgo);
         this.endInput.value = DateUtils.formatForInput(now);
         

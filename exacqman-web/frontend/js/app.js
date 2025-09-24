@@ -30,6 +30,7 @@ class ExacqManApp {
         
         // Bind methods to preserve context
         this.handleConfigChange = this.handleConfigChange.bind(this);
+        this.handleServerChange = this.handleServerChange.bind(this);
         this.handleExtractionSubmit = this.handleExtractionSubmit.bind(this);
         this.handleFileDownload = this.handleFileDownload.bind(this);
         this.handleFileDelete = this.handleFileDelete.bind(this);
@@ -53,6 +54,9 @@ class ExacqManApp {
             
             // Set up state listeners
             this.setupStateListeners();
+            
+            // Load saved preferences
+            this.loadPreferences();
             
             // Test API connection
             await this.testConnection();
@@ -88,6 +92,12 @@ class ExacqManApp {
         const configSelect = document.getElementById('config-select');
         if (configSelect) {
             configSelect.addEventListener('change', this.handleConfigChange);
+        }
+
+        // Server selection change
+        const serverSelect = document.getElementById('server-select');
+        if (serverSelect) {
+            serverSelect.addEventListener('change', this.handleServerChange);
         }
 
         // Extraction form submission
@@ -188,6 +198,35 @@ class ExacqManApp {
     }
 
     /**
+     * Load saved preferences from localStorage
+     */
+    loadPreferences() {
+        try {
+            const preferences = window.LocalStorageService.loadPreferences();
+            console.log('[DEBUG] Loading preferences:', preferences);
+            
+            // Note: Config preference is loaded in populateConfigSelect()
+            // Server and camera preferences are loaded when their respective
+            // components are populated (in populateServerSelect and updateCameraList)
+            // Multiplier preference is loaded in MultiplierSelector.setDefaultValue()
+            
+        } catch (error) {
+            console.error('Failed to load preferences:', error);
+        }
+    }
+
+    /**
+     * Handle server selection change
+     */
+    handleServerChange(event) {
+        const server = event.target.value;
+        if (server) {
+            // Save preference to localStorage
+            window.LocalStorageService.savePreference('server', server);
+        }
+    }
+
+    /**
      * Handle configuration file change
      */
     async handleConfigChange(event) {
@@ -206,6 +245,9 @@ class ExacqManApp {
         try {
             this.state.setLoading(true);
             this.state.setCurrentConfig(configFile);
+            
+            // Save preference to localStorage
+            window.LocalStorageService.savePreference('configFile', configFile);
             
             console.log('Loading cameras and config for:', configFile);
             
@@ -484,11 +526,21 @@ class ExacqManApp {
         select.disabled = false;
         select.required = true;
         
+        // Try to restore saved preference first
+        const savedConfig = window.LocalStorageService.loadPreference('configFile', null);
+        const preferredConfig = savedConfig && configs.some(config => config.path === savedConfig) ? savedConfig : null;
+        
         // Auto-select if only one configuration
         if (configs.length === 1) {
             select.value = configs[0].path;
             this.handleConfigChange({ target: { value: configs[0].path } });
             console.log('Auto-selected configuration:', configs[0].name);
+        }
+        // Use saved preference if available and valid
+        else if (preferredConfig) {
+            select.value = preferredConfig;
+            this.handleConfigChange({ target: { value: preferredConfig } });
+            console.log('Restored saved config preference:', preferredConfig);
         }
     }
 
@@ -513,10 +565,19 @@ class ExacqManApp {
         select.disabled = serverEntries.length === 0;
         select.required = serverEntries.length > 0;
         
+        // Try to load saved preference first
+        const savedServer = window.LocalStorageService.loadPreference('server', null);
+        const preferredServer = savedServer && serverEntries.some(([name]) => name === savedServer) ? savedServer : null;
+        
         // Auto-select if only one server
         if (serverEntries.length === 1) {
             select.value = serverEntries[0][0];
             console.log('Auto-selected server:', serverEntries[0][0]);
+        }
+        // Use saved preference if available and valid
+        else if (preferredServer) {
+            select.value = preferredServer;
+            console.log('Restored saved server preference:', preferredServer);
         }
     }
 
@@ -579,15 +640,101 @@ class ExacqManApp {
      * Reset extraction form
      */
     resetExtractionForm() {
-        // Reset components
-        this.cameraSelector?.reset();
-        this.dateTimePicker?.reset();
-        this.multiplierSelector?.reset();
-        
-        // Reset form
+        // Reset form first (this clears any validation errors)
         const form = document.getElementById('extraction-form');
         if (form) {
             form.reset();
+        }
+        
+        // Then set default values and restore preferences
+        this.dateTimePicker?.setDefaultValues();
+        
+        // Reset multiplier to saved preference (this will load from localStorage)
+        this.multiplierSelector?.reset();
+        
+        // Repopulate camera list and restore selection
+        this.repopulateCameraList();
+    }
+
+    /**
+     * Repopulate camera list and restore saved selection
+     */
+    async repopulateCameraList() {
+        try {
+            // Get current config and cameras
+            const currentConfig = this.state.get('currentConfig');
+            const currentCameras = this.state.get('cameras') || [];
+            
+            console.log('[DEBUG] repopulateCameraList - currentConfig:', currentConfig);
+            console.log('[DEBUG] repopulateCameraList - currentCameras:', currentCameras);
+            
+            if (!currentConfig || currentCameras.length === 0) {
+                console.log('[DEBUG] No config or cameras available for repopulation');
+                return;
+            }
+            
+            // Repopulate the camera list
+            if (this.cameraSelector) {
+                console.log('[DEBUG] repopulateCameraList - calling updateCameraList with', currentCameras.length, 'cameras');
+                this.cameraSelector.updateCameraList(currentCameras);
+            }
+            
+            // Restore saved camera selection
+            const savedCamera = window.LocalStorageService.loadPreference('camera', null);
+            if (savedCamera) {
+                const cameraExists = currentCameras.some(camera => camera.alias === savedCamera);
+                
+                if (cameraExists) {
+                    // Restore the camera selection
+                    const cameraSelect = document.getElementById('camera-select');
+                    if (cameraSelect) {
+                        cameraSelect.value = savedCamera;
+                        this.state.set('selectedCamera', savedCamera);
+                        
+                        // Trigger the camera change handler to update the UI properly
+                        this.cameraSelector.handleCameraChange(savedCamera);
+                        
+                        console.log('Restored camera selection from preferences:', savedCamera);
+                    }
+                } else {
+                    console.log('Saved camera preference not available in current config:', savedCamera);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Failed to repopulate camera list:', error);
+        }
+    }
+
+    /**
+     * Restore camera selection from preferences
+     */
+    restoreCameraSelection() {
+        try {
+            const savedCamera = window.LocalStorageService.loadPreference('camera', null);
+            if (savedCamera && this.cameraSelector) {
+                // Check if the saved camera is still available in the current camera list
+                const currentCameras = this.state.get('cameras') || [];
+                const cameraExists = currentCameras.some(camera => camera.alias === savedCamera);
+                
+                if (cameraExists) {
+                    // Restore the camera selection
+                    const cameraSelect = document.getElementById('camera-select');
+                    if (cameraSelect) {
+                        cameraSelect.value = savedCamera;
+                        this.state.set('selectedCamera', savedCamera);
+                        
+                        // Trigger the camera change handler to update the UI properly
+                        this.cameraSelector.handleCameraChange(savedCamera);
+                        
+                        console.log('Restored camera selection from preferences:', savedCamera);
+                    }
+                } else {
+                    console.log('Saved camera preference not available in current config:', savedCamera);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to restore camera selection:', error);
         }
     }
 

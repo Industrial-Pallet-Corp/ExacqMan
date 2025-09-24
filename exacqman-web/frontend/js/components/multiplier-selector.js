@@ -95,9 +95,11 @@ class MultiplierSelector {
     setDefaultValue() {
         if (!this.selectElement) return;
 
-        // Set default to 50x
-        this.selectElement.value = '50';
-        this.state.set('selectedMultiplier', 50);
+        // Try to load saved preference first
+        const savedMultiplier = window.LocalStorageService.loadPreference('timelapseMultiplier', 50);
+        console.log('[DEBUG] MultiplierSelector setDefaultValue - loaded from localStorage:', savedMultiplier);
+        this.selectElement.value = savedMultiplier.toString();
+        this.state.set('selectedMultiplier', savedMultiplier);
     }
 
     /**
@@ -112,6 +114,10 @@ class MultiplierSelector {
         }
 
         this.state.set('selectedMultiplier', multiplier);
+        
+        // Save preference to localStorage
+        window.LocalStorageService.savePreference('timelapseMultiplier', multiplier);
+        
         this.validateSelection();
         this.updateExtractionButton();
         this.updateDurationEstimate();
