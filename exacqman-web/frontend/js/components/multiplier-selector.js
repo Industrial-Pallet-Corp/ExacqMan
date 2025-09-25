@@ -97,7 +97,6 @@ class MultiplierSelector {
 
         // Try to load saved preference first
         const savedMultiplier = window.LocalStorageService.loadPreference('timelapseMultiplier', 50);
-        console.log('[DEBUG] MultiplierSelector setDefaultValue - loaded from localStorage:', savedMultiplier);
         this.selectElement.value = savedMultiplier.toString();
         this.state.set('selectedMultiplier', savedMultiplier);
     }

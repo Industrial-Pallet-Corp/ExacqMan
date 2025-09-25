@@ -70,7 +70,6 @@ class CameraSelector {
      * Handle configuration change
      */
     async handleConfigChange(configFile) {
-        console.log('[DEBUG] CameraSelector handleConfigChange called with:', configFile);
         if (!configFile) {
             this.clearCameras();
             return;
@@ -79,7 +78,6 @@ class CameraSelector {
         try {
             this.state.setLoading(true);
             const cameras = await this.api.getCameras(configFile);
-            console.log('[DEBUG] CameraSelector handleConfigChange - loaded cameras:', cameras);
             this.state.updateCameras(cameras);
         } catch (error) {
             console.error('Failed to load cameras:', error);
@@ -116,38 +114,27 @@ class CameraSelector {
 
         // Preserve current selection
         const currentValue = this.selectElement.value;
-        console.log('[DEBUG] CameraSelector updateCameraList - preserving value:', currentValue);
-        console.log('[DEBUG] CameraSelector updateCameraList - cameras received:', cameras);
 
         // Clear existing options
         this.selectElement.innerHTML = '<option value="">Select camera...</option>';
         
         if (!cameras || cameras.length === 0) {
-            console.log('[DEBUG] CameraSelector updateCameraList - no cameras available');
             this.selectElement.innerHTML = '<option value="">No cameras available</option>';
             this.selectElement.disabled = true;
             return;
         }
 
-        console.log('[DEBUG] CameraSelector updateCameraList - adding', cameras.length, 'camera options');
-        console.log('[DEBUG] CameraSelector updateCameraList - cameras array:', cameras);
-
         // Add camera options
         cameras.forEach((camera, index) => {
-            console.log(`[DEBUG] CameraSelector updateCameraList - adding camera ${index}:`, camera);
             const option = document.createElement('option');
             option.value = camera.alias;
             option.textContent = camera.description || camera.alias;
             option.dataset.cameraId = camera.id;
             this.selectElement.appendChild(option);
-            console.log(`[DEBUG] CameraSelector updateCameraList - added option:`, option);
         });
 
         this.selectElement.disabled = false;
         this.selectElement.required = true;
-        
-        console.log('[DEBUG] CameraSelector updateCameraList - final dropdown options:', this.selectElement.options.length);
-        console.log('[DEBUG] CameraSelector updateCameraList - dropdown HTML:', this.selectElement.innerHTML);
         
         // Try to load saved preference first
         const savedCamera = window.LocalStorageService.loadPreference('camera', null);
@@ -229,20 +216,18 @@ class CameraSelector {
     updateLoadingState(isLoading) {
         if (!this.selectElement) return;
 
-        this.selectElement.disabled = isLoading || !this.state.get('cameras').length;
+        // Only update loading state if we're actually loading cameras, not files
+        // Check if we have cameras loaded - if we do, don't corrupt the dropdown
+        const cameras = this.state.get('cameras');
+        if (cameras && cameras.length > 0) {
+            // We have cameras loaded, don't corrupt the dropdown for file loading
+            return;
+        }
+
+        this.selectElement.disabled = isLoading || !cameras.length;
         
         if (isLoading) {
-            // Preserve current selection when showing loading state
-            const currentValue = this.selectElement.value;
             this.selectElement.innerHTML = '<option value="">Waiting for configuration...</option>';
-            if (currentValue) {
-                // Add the current selection back as a temporary option
-                const option = document.createElement('option');
-                option.value = currentValue;
-                option.textContent = currentValue;
-                option.selected = true;
-                this.selectElement.appendChild(option);
-            }
         }
     }
 

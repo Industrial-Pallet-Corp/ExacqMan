@@ -144,7 +144,9 @@ class FileBrowser {
             const completedJobs = jobsArray.filter(job => job.status === 'completed');
             if (completedJobs.length > 0) {
                 // Auto-refresh after a short delay
-                setTimeout(() => this.loadFiles(), 2000);
+                setTimeout(() => {
+                    this.loadFiles();
+                }, 2000);
             }
         });
     }
@@ -169,6 +171,7 @@ class FileBrowser {
      * Apply filters to files
      */
     applyFilters() {
+        
         let filtered = [...this.files];
 
         // Date range filter
@@ -231,6 +234,7 @@ class FileBrowser {
      * Update camera filter options
      */
     updateCameraFilter() {
+        
         if (!this.cameraFilterSelect) return;
 
         // Get unique cameras from files
@@ -246,6 +250,7 @@ class FileBrowser {
             option.textContent = camera;
             this.cameraFilterSelect.appendChild(option);
         });
+        
     }
 
 

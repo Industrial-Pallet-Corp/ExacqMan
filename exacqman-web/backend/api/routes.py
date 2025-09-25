@@ -279,7 +279,7 @@ async def process_extract_job(job_id: str, request: ExtractRequest):
         
         # Update job status with success
         active_jobs[job_id]["status"] = "completed"
-        active_jobs[job_id]["message"] = "Video extraction completed successfully"
+        active_jobs[job_id]["message"] = "Footage extraction completed successfully"
         active_jobs[job_id]["progress"] = 100
         active_jobs[job_id]["completed_at"] = datetime.now().isoformat()
         active_jobs[job_id]["result"] = result

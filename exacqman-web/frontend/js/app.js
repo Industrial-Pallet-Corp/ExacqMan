@@ -203,7 +203,6 @@ class ExacqManApp {
     loadPreferences() {
         try {
             const preferences = window.LocalStorageService.loadPreferences();
-            console.log('[DEBUG] Loading preferences:', preferences);
             
             // Note: Config preference is loaded in populateConfigSelect()
             // Server and camera preferences are loaded when their respective
@@ -617,7 +616,6 @@ class ExacqManApp {
         return `
             <div class="job-item ${job.status}">
                 <div class="job-header">
-                    <span class="job-id">${job.id}</span>
                     <span class="job-status ${job.status}">${job.status}</span>
                 </div>
                 <div class="job-progress">
@@ -651,92 +649,8 @@ class ExacqManApp {
         
         // Reset multiplier to saved preference (this will load from localStorage)
         this.multiplierSelector?.reset();
-        
-        // Repopulate camera list and restore selection
-        this.repopulateCameraList();
     }
 
-    /**
-     * Repopulate camera list and restore saved selection
-     */
-    async repopulateCameraList() {
-        try {
-            // Get current config and cameras
-            const currentConfig = this.state.get('currentConfig');
-            const currentCameras = this.state.get('cameras') || [];
-            
-            console.log('[DEBUG] repopulateCameraList - currentConfig:', currentConfig);
-            console.log('[DEBUG] repopulateCameraList - currentCameras:', currentCameras);
-            
-            if (!currentConfig || currentCameras.length === 0) {
-                console.log('[DEBUG] No config or cameras available for repopulation');
-                return;
-            }
-            
-            // Repopulate the camera list
-            if (this.cameraSelector) {
-                console.log('[DEBUG] repopulateCameraList - calling updateCameraList with', currentCameras.length, 'cameras');
-                this.cameraSelector.updateCameraList(currentCameras);
-            }
-            
-            // Restore saved camera selection
-            const savedCamera = window.LocalStorageService.loadPreference('camera', null);
-            if (savedCamera) {
-                const cameraExists = currentCameras.some(camera => camera.alias === savedCamera);
-                
-                if (cameraExists) {
-                    // Restore the camera selection
-                    const cameraSelect = document.getElementById('camera-select');
-                    if (cameraSelect) {
-                        cameraSelect.value = savedCamera;
-                        this.state.set('selectedCamera', savedCamera);
-                        
-                        // Trigger the camera change handler to update the UI properly
-                        this.cameraSelector.handleCameraChange(savedCamera);
-                        
-                        console.log('Restored camera selection from preferences:', savedCamera);
-                    }
-                } else {
-                    console.log('Saved camera preference not available in current config:', savedCamera);
-                }
-            }
-            
-        } catch (error) {
-            console.error('Failed to repopulate camera list:', error);
-        }
-    }
-
-    /**
-     * Restore camera selection from preferences
-     */
-    restoreCameraSelection() {
-        try {
-            const savedCamera = window.LocalStorageService.loadPreference('camera', null);
-            if (savedCamera && this.cameraSelector) {
-                // Check if the saved camera is still available in the current camera list
-                const currentCameras = this.state.get('cameras') || [];
-                const cameraExists = currentCameras.some(camera => camera.alias === savedCamera);
-                
-                if (cameraExists) {
-                    // Restore the camera selection
-                    const cameraSelect = document.getElementById('camera-select');
-                    if (cameraSelect) {
-                        cameraSelect.value = savedCamera;
-                        this.state.set('selectedCamera', savedCamera);
-                        
-                        // Trigger the camera change handler to update the UI properly
-                        this.cameraSelector.handleCameraChange(savedCamera);
-                        
-                        console.log('Restored camera selection from preferences:', savedCamera);
-                    }
-                } else {
-                    console.log('Saved camera preference not available in current config:', savedCamera);
-                }
-            }
-        } catch (error) {
-            console.error('Failed to restore camera selection:', error);
-        }
-    }
 
     /**
      * Show success message

@@ -85,7 +85,6 @@ class JobStatus {
             <div class="job-item ${statusClass}" data-job-id="${job.id}">
                 <div class="job-header">
                     <div class="job-info">
-                        <span class="job-id">${this.formatJobId(job.id)}</span>
                         <span class="job-created">${createdAt}</span>
                     </div>
                     <div class="job-status">
@@ -130,24 +129,8 @@ class JobStatus {
         
         if (job.status === 'completed' && job.result?.filename) {
             actions.push(`
-                <button class="btn btn-sm btn-secondary" onclick="app.handleFileDownload('${job.result.filename}')">
+                <button class="btn btn-sm btn-primary" onclick="app.handleFileDownload('${job.result.filename}')">
                     Download
-                </button>
-            `);
-        }
-        
-        if (job.status === 'failed') {
-            actions.push(`
-                <button class="btn btn-sm btn-danger" onclick="app.removeJob('${job.id}')">
-                    Remove
-                </button>
-            `);
-        }
-        
-        if (job.status === 'completed') {
-            actions.push(`
-                <button class="btn btn-sm btn-danger" onclick="app.removeJob('${job.id}')">
-                    Remove
                 </button>
             `);
         }
@@ -291,6 +274,7 @@ class JobStatus {
         
         this.jobPoller = new JobPoller(this.api, (jobId, status) => {
             this.state.updateJobStatus(jobId, status);
+            
         });
         
         this.jobPoller.start(jobId);
