@@ -549,6 +549,7 @@ def main():
 
         try:
             extracted_video_name = exapi.get_video(settings.camera_id, start, end, video_filename=settings.output_filename)
+            exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone) # Reinstantiated object because of auth token timeout.
             video_timestamps = exapi.get_timestamps(settings.camera_id, start, end)
         except ExacqvisionError as e:
             print(f'Failed to get video. Make sure selected camera: {settings.camera_alias} is part of selected server: {settings.server}. {e}')
