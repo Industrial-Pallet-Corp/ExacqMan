@@ -33,6 +33,7 @@ class Settings:
     crop_dimensions: tuple[tuple[int,int],tuple[int,int]] = None # (x,y)(width,height) where (x,y) = top left of rectangle
     font_weight: int = 2                # Font thickness
     caption: str = None                 # Caption above the timestamp
+    caption_limit = 120                # Max number of characters for caption
 
     server: str = None                  # Server name (Should match to one of the servers in config file under [Network])
     server_ip: str = None               # IP address of the Exacqman server
@@ -65,8 +66,8 @@ class Settings:
             crop=bool(set_value(arg_value='crop', cls_value=cls.crop)),
             crop_dimensions=literal_eval(config.get('Settings','crop_dimensions',fallback='')) if config.get('Settings', 'crop_dimensions', fallback='') else None,
             font_weight=int(set_value(config_value=config.get('Settings','font_weight',fallback=''), cls_value=cls.font_weight)),
-            caption=set_value(arg_value='caption', config_value=config.get('Settings', 'caption', fallback=''),cls_value=cls.caption),
-            
+            caption=set_value(arg_value='caption', config_value=config.get('Settings', 'caption', fallback='').upper(),cls_value=cls.caption),
+
             server=set_value(arg_value='server', config_value=config.get('Runtime', 'server', fallback=''), cls_value=cls.server),
             server_ip=config['Network'].get(set_value(arg_value='server', config_value=config['Runtime']['server'])) if 'Network' in config else None,
             camera_alias=set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback=''), cls_value=cls.camera_alias),
@@ -171,6 +172,13 @@ def validate_config(config: ConfigParser) -> bool:
                 fatal = True
         except ValueError:
             errors.append('font_weight must be a postive integer')
+            fatal = True
+
+    if 'caption' not in config['Settings']:
+        errors.append('caption is missing from Settings header.')
+    else:
+        if len(config['Settings']['caption']) > Settings.caption_limit:
+            errors.append(f'Caption Character limit of {Settings.caption_limit} exceeded.')
             fatal = True
 
     server = config['Runtime']['server']
