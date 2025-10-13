@@ -32,6 +32,7 @@ class Settings:
     crop: bool = False                  # Does the video need cropped? Crop_dimensions only matter if this is True.
     crop_dimensions: tuple[tuple[int,int],tuple[int,int]] = None # (x,y)(width,height) where (x,y) = top left of rectangle
     font_weight: int = 2                # Font thickness
+    caption: str = None                 # Caption above the timestamp
 
     server: str = None                  # Server name (Should match to one of the servers in config file under [Network])
     server_ip: str = None               # IP address of the Exacqman server
@@ -64,7 +65,8 @@ class Settings:
             crop=bool(set_value(arg_value='crop', cls_value=cls.crop)),
             crop_dimensions=literal_eval(config.get('Settings','crop_dimensions',fallback='')) if config.get('Settings', 'crop_dimensions', fallback='') else None,
             font_weight=int(set_value(config_value=config.get('Settings','font_weight',fallback=''), cls_value=cls.font_weight)),
-
+            caption=set_value(arg_value='caption', config_value=config.get('Settings', 'caption', fallback=''),cls_value=cls.caption),
+            
             server=set_value(arg_value='server', config_value=config.get('Runtime', 'server', fallback=''), cls_value=cls.server),
             server_ip=config['Network'].get(set_value(arg_value='server', config_value=config['Runtime']['server'])) if 'Network' in config else None,
             camera_alias=set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback=''), cls_value=cls.camera_alias),
@@ -366,6 +368,9 @@ def process_video(original_video_path: str, output_video_path: str = None, times
             timestamp_string = current_timestamp.strftime('%Y-%m-%d %H:%M:%S')
             x_pos, y_pos = calculate_xy_text_position(crop_height, crop_width, timestamp_string, font_scale)
             cv2.putText(finished_frame, timestamp_string, (x_pos, y_pos), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), settings.font_weight, cv2.LINE_AA)
+            caption_font_scale = font_scale*0.8
+            caption_x, caption_y = calculate_xy_text_position(crop_height*.85, crop_width, settings.caption, caption_font_scale)
+            cv2.putText(finished_frame, settings.caption, (caption_x, caption_y), cv2.FONT_HERSHEY_SIMPLEX, caption_font_scale, (255, 255, 255), settings.font_weight, cv2.LINE_AA)
 
         if count % multiplier == 0:
             writer.write(finished_frame)
