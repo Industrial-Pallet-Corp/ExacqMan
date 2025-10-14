@@ -33,7 +33,7 @@ class Settings:
     crop_dimensions: tuple[tuple[int,int],tuple[int,int]] = None # (x,y)(width,height) where (x,y) = top left of rectangle
     font_weight: int = 2                # Font thickness
     caption: str = None                 # Caption above the timestamp
-    caption_limit = 120                 # Max number of characters for caption
+    caption_limit = 40                  # Max number of characters for caption
 
     server: str = None                  # Server name (Should match to one of the servers in config file under [Network])
     server_ip: str = None               # IP address of the Exacqman server
