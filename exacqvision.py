@@ -230,20 +230,24 @@ class Exacqvision:
 
         total_size = int(response.headers.get('content-length', 0))
 
-        # Open the file in write-binary mode and initialize the progress bar
-        with open(file_name, 'wb') as file, tqdm(
-            desc=file_name,
-            total=total_size,
-            unit='iB',
-            unit_scale=True,
-            unit_divisor=1024,
-            leave=False
-            # ncols=80,  # Adjust the width of the progress bar
-        ) as bar:
-            # Iterate over the response data in chunks and update the progress bar
-            for data in response.iter_content(chunk_size=1024):
-                size = file.write(data)
-                bar.update(size)
+        try:
+            # Open the file in write-binary mode and initialize the progress bar
+            with open(file_name, 'wb') as file, tqdm(
+                desc=file_name,
+                total=total_size,
+                unit='iB',
+                unit_scale=True,
+                unit_divisor=1024,
+                leave=False
+                # ncols=80,  # Adjust the width of the progress bar
+            ) as bar:
+                # Iterate over the response data in chunks and update the progress bar
+                for data in response.iter_content(chunk_size=1024):
+                    size = file.write(data)
+                    bar.update(size)
+
+        except Exception as e:
+            raise ExacqvisionError(f"Download failed at {datetime.now()}: {str(e)}")
 
         print(f"Video saved successfully as {file_name}!")
 

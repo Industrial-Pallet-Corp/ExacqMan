@@ -474,6 +474,7 @@ def parse_arguments():
     extract_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
     extract_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
     extract_parser.add_argument('-c', '--crop', action='store_true', help='Crop the video. Set by config file or query user.')
+    extract_parser.add_argument('--caption', type=str, help='Add caption above timestamp (max of 40 chars)')
 
     # Compress subcommand
     compress_parser = subparsers.add_parser('compress', help='Compress a video file')
@@ -487,6 +488,7 @@ def parse_arguments():
     timelapse_parser.add_argument('multiplier', default=None, type=int, help='Desired timelapse multiplier (must be a positive integer)')
     timelapse_parser.add_argument('-o', '--output_name', default=None, type=str, help='Desired filepath')
     timelapse_parser.add_argument('-c', '--crop', action='store_true', help='Crop the video. Set by config file or query user.')
+    timelapse_parser.add_argument('--caption', type=str, help='Add caption above timestamp (max of 40 chars)')
 
     # Prints help text if the command doesn't begin with default, timelapse, or compress
     if len(sys.argv) < 2 or sys.argv[1] not in ['extract', 'timelapse', 'compress']:
