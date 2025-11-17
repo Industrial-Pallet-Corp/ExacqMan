@@ -196,6 +196,7 @@ yarn-error.log*
 *.swp
 *.swo
 *~
+.vim_session
 
 # Temporary files
 *.tmp
