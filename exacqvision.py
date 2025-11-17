@@ -186,7 +186,7 @@ class Exacqvision:
             raise ExacqvisionError(f"Export request failed: {str(e)}")
 
 
-    def export_status(self, export_id:str) -> bool:
+    def export_status(self, export_id:str) -> tuple[bool,int]:
         """
         Checks the status of an export request.
 
@@ -195,19 +195,20 @@ class Exacqvision:
 
         Returns:
             bool: True if the export is complete (100%), False otherwise.
+            progress: Percentage complete.
         """
         url = f"{self.base_url}/v1/export.web?export={export_id}"
 
         response = requests.request("GET", url)
-        progress = json.loads(response.text)['progress']
+        progress = int(json.loads(response.text)['progress'])
         #pprint(response.json())
         
         if progress == 100:
             print('Export ready')
-            return True
+            return True, progress
         else:
             print(f'Export in progress: {progress}% complete')
-            return False
+            return False, progress
 
 
     def export_download(self, export_id:str) -> str:
@@ -229,20 +230,24 @@ class Exacqvision:
 
         total_size = int(response.headers.get('content-length', 0))
 
-        # Open the file in write-binary mode and initialize the progress bar
-        with open(file_name, 'wb') as file, tqdm(
-            desc=file_name,
-            total=total_size,
-            unit='iB',
-            unit_scale=True,
-            unit_divisor=1024,
-            leave=False
-            # ncols=80,  # Adjust the width of the progress bar
-        ) as bar:
-            # Iterate over the response data in chunks and update the progress bar
-            for data in response.iter_content(chunk_size=1024):
-                size = file.write(data)
-                bar.update(size)
+        try:
+            # Open the file in write-binary mode and initialize the progress bar
+            with open(file_name, 'wb') as file, tqdm(
+                desc=file_name,
+                total=total_size,
+                unit='iB',
+                unit_scale=True,
+                unit_divisor=1024,
+                leave=False
+                # ncols=80,  # Adjust the width of the progress bar
+            ) as bar:
+                # Iterate over the response data in chunks and update the progress bar
+                for data in response.iter_content(chunk_size=1024):
+                    size = file.write(data)
+                    bar.update(size)
+
+        except Exception as e:
+            raise ExacqvisionError(f"Download failed at {datetime.now()}: {str(e)}")
 
         print(f"Video saved successfully as {file_name}!")
 
@@ -258,7 +263,7 @@ class Exacqvision:
         return(response.text)
 
 
-    def get_video(self, camera: int, start: datetime, stop: datetime, video_filename: str, timeout: int = 25):
+    def get_video(self, camera: int, start: datetime, stop: datetime, video_filename: str, num_of_retries: int = 5):
         """
         Exports and downloads a video from the specified camera and time range.
 
@@ -267,28 +272,38 @@ class Exacqvision:
             start (datetime):       Start time of the search as a datetime object.
             stop (datetime):        End time of the search as a datetime object.
             video_filename (str):   Desired name for the exported video file.
-            timeout (int):          How many seconds the script will wait for export_status to be 100%
+            num_of_retries (int):   How many times the script will retry if progress has not moved.
 
         Returns:
             str: Path to the downloaded video file.
 
         Raises:
             ExacqvisionError: If the export or download fails.
-            ExacqvisionTimeoutError: If the export does not complete within the timeout.
+            ExacqvisionTimeoutError: If the export status fails to reach 100%.
         """
         export_id = None
         try:
             export_id = self.export_request(camera, start, stop, name=video_filename)
             sleep(2)  # Wait briefly before checking status
 
-            elapsed_time = 0
-            while not self.export_status(export_id) and elapsed_time < timeout:
+            retries = 0
+            ready_to_export, progress = self.export_status(export_id)
+
+            while not ready_to_export and retries <= num_of_retries:
                 sleep(5)
-                elapsed_time += 5
+                ready_to_export, updated_progress = self.export_status(export_id)
 
-            if elapsed_time >= timeout:
-                raise ExacqvisionTimeoutError(f"Export {export_id} failed to complete within time.")
+                # If progress doesn't move, tally a retry
+                if  updated_progress == progress:
+                    retries += 1
+                else:
+                    retries = 0
 
+                progress = updated_progress # set progress to the last value received
+
+            if retries > num_of_retries:
+                raise ExacqvisionTimeoutError(f"Export {export_id} progress stalled for too long.")
+            
             return self.export_download(export_id)
 
         except ExacqvisionError as e:

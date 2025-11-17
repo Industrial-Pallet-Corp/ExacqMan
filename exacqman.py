@@ -32,6 +32,8 @@ class Settings:
     crop: bool = False                  # Does the video need cropped? Crop_dimensions only matter if this is True.
     crop_dimensions: tuple[tuple[int,int],tuple[int,int]] = None # (x,y)(width,height) where (x,y) = top left of rectangle
     font_weight: int = 2                # Font thickness
+    caption: str = None                 # Caption above the timestamp
+    caption_limit = 40                  # Max number of characters for caption
 
     server: str = None                  # Server name (Should match to one of the servers in config file under [Network])
     server_ip: str = None               # IP address of the Exacqman server
@@ -93,6 +95,7 @@ class Settings:
             crop=bool(set_value(arg_value='crop', cls_value=cls.crop)),
             crop_dimensions=literal_eval(config.get('Settings','crop_dimensions',fallback='')) if config.get('Settings', 'crop_dimensions', fallback='') else None,
             font_weight=int(set_value(config_value=config.get('Settings','font_weight',fallback=''), cls_value=cls.font_weight)),
+            caption=set_value(arg_value='caption', config_value=config.get('Settings', 'caption', fallback='').upper(),cls_value=cls.caption),
 
             server=server,
             server_ip=config['Network'].get(server) if 'Network' in config and server else None,
@@ -198,6 +201,13 @@ def validate_config(config: ConfigParser) -> bool:
                 fatal = True
         except ValueError:
             errors.append('font_weight must be a postive integer')
+            fatal = True
+
+    if 'caption' not in config['Settings']:
+        errors.append('caption is missing from Settings header.')
+    else:
+        if len(config['Settings']['caption']) > Settings.caption_limit:
+            errors.append(f'Caption Character limit of {Settings.caption_limit} exceeded.')
             fatal = True
 
     # Only validate Runtime section if it exists
@@ -397,6 +407,9 @@ def process_video(original_video_path: str, output_video_path: str = None, times
             timestamp_string = current_timestamp.strftime('%Y-%m-%d %H:%M:%S')
             x_pos, y_pos = calculate_xy_text_position(crop_height, crop_width, timestamp_string, font_scale)
             cv2.putText(finished_frame, timestamp_string, (x_pos, y_pos), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), settings.font_weight, cv2.LINE_AA)
+            caption_font_scale = font_scale*0.8
+            caption_x, caption_y = calculate_xy_text_position(crop_height*.85, crop_width, settings.caption, caption_font_scale)
+            cv2.putText(finished_frame, settings.caption, (caption_x, caption_y), cv2.FONT_HERSHEY_SIMPLEX, caption_font_scale, (255, 255, 255), settings.font_weight, cv2.LINE_AA)
 
         if count % multiplier == 0:
             writer.write(finished_frame)
@@ -492,6 +505,7 @@ def parse_arguments():
     extract_parser.add_argument('--quality', type=str, choices=['low', 'medium', 'high'], help='Desired video quality')
     extract_parser.add_argument('--multiplier', type=int, help='Desired timelapse multiplier (must be a positive integer)')
     extract_parser.add_argument('-c', '--crop', action='store_true', help='Crop the video. Set by config file or query user.')
+    extract_parser.add_argument('--caption', type=str, help='Add caption above timestamp (max of 40 chars)')
 
     # Compress subcommand
     compress_parser = subparsers.add_parser('compress', help='Compress a video file')
@@ -505,6 +519,7 @@ def parse_arguments():
     timelapse_parser.add_argument('multiplier', default=None, type=int, help='Desired timelapse multiplier (must be a positive integer)')
     timelapse_parser.add_argument('-o', '--output_name', default=None, type=str, help='Desired filepath')
     timelapse_parser.add_argument('-c', '--crop', action='store_true', help='Crop the video. Set by config file or query user.')
+    timelapse_parser.add_argument('--caption', type=str, help='Add caption above timestamp (max of 40 chars)')
 
     # Prints help text if the command doesn't begin with default, timelapse, or compress
     if len(sys.argv) < 2 or sys.argv[1] not in ['extract', 'timelapse', 'compress']:
@@ -580,6 +595,7 @@ def main():
 
         try:
             extracted_video_name = exapi.get_video(settings.camera_id, start, end, video_filename=settings.output_filename)
+            exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone) # Reinstantiated object because of auth token timeout.
             video_timestamps = exapi.get_timestamps(settings.camera_id, start, end)
         except ExacqvisionError as e:
             print(f'Failed to get video. Make sure selected camera: {settings.camera_alias} is part of selected server: {settings.server}. {e}')
