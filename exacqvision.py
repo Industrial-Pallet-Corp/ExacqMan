@@ -223,15 +223,27 @@ class Exacqvision:
         """
 
         url = f"{self.base_url}/v1/export.web?export={export_id}&action=download"
+        
+        print(f"[DEBUG] export_download: Starting download for export_id={export_id}")
+        print(f"[DEBUG] export_download: URL={url}")
+        print(f"[DEBUG] export_download: base_url={self.base_url}")
 
         response = requests.get(url, stream=True) # Setting stream to true is necessary to keep the progress bar updating while downloading the file.
+        
+        print(f"[DEBUG] export_download: Response status_code={response.status_code}")
+        print(f"[DEBUG] export_download: Response headers={dict(response.headers)}")
+        print(f"[DEBUG] export_download: Response encoding={response.encoding}")
+        print(f"[DEBUG] export_download: Response transfer_encoding={response.headers.get('Transfer-Encoding', 'Not set')}")
 
         file_name = response.headers.get('Content-Disposition').split('filename=')[-1].strip('"')
+        print(f"[DEBUG] export_download: Extracted filename={file_name}")
 
         total_size = int(response.headers.get('content-length', 0))
+        print(f"[DEBUG] export_download: Total size={total_size} bytes")
 
         try:
             # Open the file in write-binary mode and initialize the progress bar
+            print(f"[DEBUG] export_download: Opening file for writing: {file_name}")
             with open(file_name, 'wb') as file, tqdm(
                 desc=file_name,
                 total=total_size,
@@ -242,11 +254,30 @@ class Exacqvision:
                 # ncols=80,  # Adjust the width of the progress bar
             ) as bar:
                 # Iterate over the response data in chunks and update the progress bar
-                for data in response.iter_content(chunk_size=1024):
+                chunk_count = 0
+                total_bytes_written = 0
+                print(f"[DEBUG] export_download: Starting chunk iteration with chunk_size=65536")
+                for data in response.iter_content(chunk_size=65536):
+                    chunk_count += 1
+                    chunk_size = len(data)
+                    total_bytes_written += chunk_size
+                    
+                    if chunk_count <= 5 or chunk_count % 100 == 0:
+                        print(f"[DEBUG] export_download: Chunk #{chunk_count}, size={chunk_size} bytes, total_written={total_bytes_written} bytes")
+                    
                     size = file.write(data)
                     bar.update(size)
+                
+                print(f"[DEBUG] export_download: Completed chunk iteration. Total chunks={chunk_count}, total_bytes={total_bytes_written}")
 
         except Exception as e:
+            error_type = type(e).__name__
+            error_message = str(e)
+            print(f"[DEBUG] export_download: EXCEPTION CAUGHT!")
+            print(f"[DEBUG] export_download: Exception type={error_type}")
+            print(f"[DEBUG] export_download: Exception message={error_message}")
+            print(f"[DEBUG] export_download: Response status_code={response.status_code}")
+            print(f"[DEBUG] export_download: Response headers at error={dict(response.headers)}")
             raise ExacqvisionError(f"Download failed at {datetime.now()}: {str(e)}")
 
         print(f"Video saved successfully as {file_name}!")
@@ -304,9 +335,18 @@ class Exacqvision:
             if retries > num_of_retries:
                 raise ExacqvisionTimeoutError(f"Export {export_id} progress stalled for too long.")
             
+            print(f"[DEBUG] get_video: Export ready, calling export_download for export_id={export_id}")
+            print(f"[DEBUG] get_video: camera={camera}, start={start}, stop={stop}, video_filename={video_filename}")
             return self.export_download(export_id)
 
         except ExacqvisionError as e:
+            print(f"[DEBUG] get_video: ExacqvisionError caught: {str(e)}")
+            print(f"[DEBUG] get_video: Error type: {type(e).__name__}")
+            print(f"[DEBUG] get_video: export_id at error: {export_id}")
+            raise ExacqvisionError(f"Failed to get video: {str(e)}")
+        except Exception as e:
+            print(f"[DEBUG] get_video: Unexpected exception caught: {type(e).__name__}: {str(e)}")
+            print(f"[DEBUG] get_video: export_id at error: {export_id}")
             raise ExacqvisionError(f"Failed to get video: {str(e)}")
         finally:
             if export_id:

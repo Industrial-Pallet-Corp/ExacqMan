@@ -82,6 +82,7 @@ class ExacqManService:
             # Parse output in real-time
             progress_percent = 0
             last_incremental_time = time.time()
+            buffer = b''  # Buffer for partial lines
             
             while True:
                 # Check for incremental progress first (every 2 seconds)
@@ -106,38 +107,50 @@ class ExacqManService:
                         progress_callback(progress_percent, message)
                 
                 # Read CLI output with timeout
+                # Use read() with chunk size and manually parse newlines to handle long lines
                 try:
-                    line = await asyncio.wait_for(process.stdout.readline(), timeout=0.1)
-                    if not line:
+                    chunk = await asyncio.wait_for(process.stdout.read(8192), timeout=0.1)
+                    if not chunk:
+                        # EOF reached, process any remaining buffer
+                        if buffer:
+                            line = buffer.decode('utf-8', errors='replace').strip()
+                            if line:
+                                logger.info(f"CLI Output (final): {line}")
                         break
                     
-                    # Decode bytes to string
-                    line = line.decode('utf-8').strip()
-                    if not line:
-                        continue
+                    # Add chunk to buffer
+                    buffer += chunk
                     
-                    logger.info(f"CLI Output: {line}")
-                    
-                    # Check for milestone updates
-                    if "Export ready" in line:
-                        progress_percent = 10
-                        last_incremental_time = time.time()
-                        progress_callback(progress_percent, "Footage located...")
-                    elif "Video saved successfully" in line:
-                        progress_percent = 20
-                        last_incremental_time = time.time()
-                        progress_callback(progress_percent, "Footage extracted successfully...")
-                    elif "Processing Video" in line:
-                        progress_percent = 30
-                        last_incremental_time = time.time()
-                        progress_callback(progress_percent, "Processing footage...")
-                    elif "Beginning Video compression" in line:
-                        progress_percent = 80
-                        last_incremental_time = time.time()
-                        progress_callback(progress_percent, "Compressing footage...")
-                    elif "Video successfully compressed" in line:
-                        progress_callback(100, "Video processing completed!")
-                        break
+                    # Process complete lines from buffer
+                    while b'\n' in buffer:
+                        line_bytes, buffer = buffer.split(b'\n', 1)
+                        line = line_bytes.decode('utf-8', errors='replace').strip()
+                        
+                        if not line:
+                            continue
+                        
+                        logger.info(f"CLI Output: {line}")
+                        
+                        # Check for milestone updates
+                        if "Export ready" in line:
+                            progress_percent = 10
+                            last_incremental_time = time.time()
+                            progress_callback(progress_percent, "Footage located...")
+                        elif "Video saved successfully" in line:
+                            progress_percent = 20
+                            last_incremental_time = time.time()
+                            progress_callback(progress_percent, "Footage extracted successfully...")
+                        elif "Processing Video" in line:
+                            progress_percent = 30
+                            last_incremental_time = time.time()
+                            progress_callback(progress_percent, "Processing footage...")
+                        elif "Beginning Video compression" in line:
+                            progress_percent = 80
+                            last_incremental_time = time.time()
+                            progress_callback(progress_percent, "Compressing footage...")
+                        elif "Video successfully compressed" in line:
+                            progress_callback(100, "Video processing completed!")
+                            break
                         
                 except asyncio.TimeoutError:
                     # No output available, continue with incremental progress
@@ -166,7 +179,21 @@ class ExacqManService:
             }
             
         except Exception as e:
-            logger.error(f"Error in extract_video_with_progress: {str(e)}")
+            error_type = type(e).__name__
+            error_message = str(e)
+            error_traceback = None
+            try:
+                import traceback
+                error_traceback = traceback.format_exc()
+            except:
+                pass
+            
+            logger.error(f"Error in extract_video_with_progress: {error_type}: {error_message}")
+            if error_traceback:
+                logger.error(f"Error traceback:\n{error_traceback}")
+            logger.error(f"Error details - type: {error_type}, message: {error_message}")
+            logger.error(f"Command that failed: {' '.join(cmd_args)}")
+            logger.error(f"Working directory: {self.working_directory}")
             progress_callback(0, f"Error: {str(e)}")
             raise
 
