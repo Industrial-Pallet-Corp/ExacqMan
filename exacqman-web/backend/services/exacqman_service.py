@@ -5,16 +5,37 @@ Handles interaction with the ExacqMan CLI tool for video processing operations.
 """
 
 import asyncio
+import json
 import subprocess
 import logging
-import time
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, Optional
 from pathlib import Path
 import shutil
 
 from api.models import ExtractRequest
 
 logger = logging.getLogger(__name__)
+
+
+# Maps CLI stage names to (low, high) web progress percentages. Within a stage,
+# CLI `progress` events are scaled linearly into [low, high). On `stage` entry,
+# web progress jumps to `low`. On `done`, web progress is 100.
+_STAGE_RANGES = {
+    "request":          (0,  1),
+    "export_wait":      (1,  10),
+    "export_download":  (10, 25),
+    "frame_processing": (25, 75),
+    "compression":      (75, 99),
+}
+
+# Human-readable messages per stage shown in the web UI.
+_STAGE_MESSAGES = {
+    "request":          "Requesting export from server",
+    "export_wait":      "Server preparing export",
+    "export_download":  "Downloading footage",
+    "frame_processing": "Processing frames",
+    "compression":      "Compressing video",
+}
 
 class ExacqManService:
     """Service for interacting with ExacqMan CLI tool."""
@@ -37,19 +58,22 @@ class ExacqManService:
         Returns:
             Dict containing result information
         """
+        cmd_args = []
         try:
             # Convert datetime objects to the format expected by ExacqMan CLI
             start_date = request.start_datetime.strftime("%m/%d")
             start_time = request.start_datetime.strftime("%I:%M%p").lstrip('0')
             end_time = request.end_datetime.strftime("%I:%M%p").lstrip('0')
-            
+
             # Generate output filename
             output_filename = self._generate_output_filename(request)
-            
-            # Build command arguments
-            # Using -u flag for unbuffered output so we can read subprocess output in real-time
+
+            # Build command arguments.
+            # -u runs Python unbuffered so events stream in real time.
+            # --progress-format=json makes the CLI emit one JSON event per line.
             cmd_args = [
                 "python3", "-u", self.exacqman_path,
+                "--progress-format=json",
                 "extract",
                 request.camera_alias,
                 start_date,
@@ -58,145 +82,174 @@ class ExacqManService:
                 request.config_file,
                 "--multiplier", str(request.timelapse_multiplier),
                 "-c",  # Enable cropping to apply crop_dimensions and font_weight settings
-                "-o", output_filename
+                "-o", output_filename,
             ]
-            
-            # Add optional server argument
+
             if request.server:
                 cmd_args.extend(["--server", request.server])
-            
+
             logger.info(f"Running extract command: {' '.join(cmd_args)}")
             logger.info(f"Working directory: {self.working_directory}")
             logger.info(f"Config file: {request.config_file}")
-            
-            # Initial progress
+
             progress_callback(0, "Starting video extraction...")
-            
-            # Run the command asynchronously with real-time output parsing
+
             process = await asyncio.create_subprocess_exec(
                 *cmd_args,
                 cwd=self.working_directory,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT  # Combine stderr with stdout
+                stderr=asyncio.subprocess.STDOUT,  # Combine stderr with stdout
             )
-            
-            # Parse output in real-time
-            progress_percent = 0
-            last_incremental_time = time.time()
-            buffer = b''  # Buffer for partial lines
-            
-            while True:
-                # Check for incremental progress first (every 2 seconds)
-                current_time = time.time()
-                if current_time - last_incremental_time >= 2.0 and progress_percent < 90:
-                    # Calculate next milestone
-                    next_milestone = 20 if progress_percent < 20 else (30 if progress_percent < 30 else 90)
-                    increment = min(2, next_milestone - progress_percent)
-                    if increment > 0:
-                        progress_percent += increment
-                        last_incremental_time = current_time
-                        
-                        # Update message based on current stage
-                        if progress_percent < 20:
-                            message = "Footage located..."
-                        elif progress_percent < 30:
-                            message = "Footage extracted successfully..."
-                        else:
-                            message = "Processing footage..."
-                        
-                        logger.info(f"Incremental progress: {message} ({progress_percent}%)")
-                        progress_callback(progress_percent, message)
-                
-                # Read CLI output with timeout
-                # Use read() with chunk size and manually parse newlines to handle long lines
-                try:
-                    chunk = await asyncio.wait_for(process.stdout.read(8192), timeout=0.1)
-                    if not chunk:
-                        # EOF reached, process any remaining buffer
-                        if buffer:
-                            line = buffer.decode('utf-8', errors='replace').strip()
-                            if line:
-                                logger.info(f"CLI Output (final): {line}")
-                        break
-                    
-                    # Add chunk to buffer
-                    buffer += chunk
-                    
-                    # Process complete lines from buffer
-                    while b'\n' in buffer:
-                        line_bytes, buffer = buffer.split(b'\n', 1)
-                        line = line_bytes.decode('utf-8', errors='replace').strip()
-                        
-                        if not line:
-                            continue
-                        
-                        logger.info(f"CLI Output: {line}")
-                        
-                        # Check for milestone updates
-                        if "Export ready" in line:
-                            progress_percent = 10
-                            last_incremental_time = time.time()
-                            progress_callback(progress_percent, "Footage located...")
-                        elif "Video saved successfully" in line:
-                            progress_percent = 20
-                            last_incremental_time = time.time()
-                            progress_callback(progress_percent, "Footage extracted successfully...")
-                        elif "Processing Video" in line:
-                            progress_percent = 30
-                            last_incremental_time = time.time()
-                            progress_callback(progress_percent, "Processing footage...")
-                        elif "Beginning Video compression" in line:
-                            progress_percent = 80
-                            last_incremental_time = time.time()
-                            progress_callback(progress_percent, "Compressing footage...")
-                        elif "Video successfully compressed" in line:
-                            progress_callback(100, "Video processing completed!")
-                            break
-                        
-                except asyncio.TimeoutError:
-                    # No output available, continue with incremental progress
-                    continue
-            
-            # Wait for process to complete
+
+            cli_error: Optional[Dict[str, Any]] = await self._consume_cli_events(
+                process, progress_callback
+            )
+
             await process.wait()
-            
+
             if process.returncode != 0:
-                error_msg = f"Extract command failed with return code {process.returncode}"
+                error_msg = (
+                    cli_error["message"] if cli_error
+                    else f"Extract command failed with return code {process.returncode}"
+                )
                 logger.error(error_msg)
                 progress_callback(0, f"Error: {error_msg}")
-                raise subprocess.CalledProcessError(process.returncode, cmd_args, error_msg)
-            
-            # Move final output to exports directory
+                raise subprocess.CalledProcessError(
+                    process.returncode, cmd_args, error_msg
+                )
+
             final_path = await self._move_to_exports(output_filename)
-            
-            # Clean up intermediate files after moving the final file
             await self._cleanup_intermediate_files(output_filename)
-            
+
             return {
                 "operation": "extract",
                 "output_file": final_path,
                 "filename": Path(final_path).name,
-                "success": True
+                "success": True,
             }
-            
+
         except Exception as e:
             error_type = type(e).__name__
             error_message = str(e)
-            error_traceback = None
-            try:
-                import traceback
-                error_traceback = traceback.format_exc()
-            except:
-                pass
-            
             logger.error(f"Error in extract_video_with_progress: {error_type}: {error_message}")
-            if error_traceback:
-                logger.error(f"Error traceback:\n{error_traceback}")
-            logger.error(f"Error details - type: {error_type}, message: {error_message}")
-            logger.error(f"Command that failed: {' '.join(cmd_args)}")
+            if cmd_args:
+                logger.error(f"Command that failed: {' '.join(cmd_args)}")
             logger.error(f"Working directory: {self.working_directory}")
             progress_callback(0, f"Error: {str(e)}")
             raise
+
+    async def _consume_cli_events(
+        self,
+        process: asyncio.subprocess.Process,
+        progress_callback: Callable[[int, str], None],
+    ) -> Optional[Dict[str, Any]]:
+        """Read JSON events from the CLI subprocess and drive progress_callback.
+
+        Returns the last `error` event payload (if any), so the caller can use
+        its message when the subprocess exits non-zero. Non-JSON lines (e.g.
+        Python tracebacks, stray prints) are logged and otherwise ignored.
+        """
+        buffer = b""
+        current_stage: Optional[str] = None
+        last_error: Optional[Dict[str, Any]] = None
+
+        while True:
+            chunk = await process.stdout.read(8192)
+            if not chunk:
+                if buffer:
+                    self._handle_cli_line(
+                        buffer.decode("utf-8", errors="replace").strip(),
+                        progress_callback,
+                        current_stage_ref=lambda: current_stage,
+                    )
+                break
+            buffer += chunk
+            while b"\n" in buffer:
+                line_bytes, buffer = buffer.split(b"\n", 1)
+                line = line_bytes.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
+                event = self._parse_event_line(line)
+                if event is None:
+                    continue
+                kind = event.get("event")
+                if kind == "stage":
+                    current_stage = event.get("stage") or current_stage
+                    low, _ = _STAGE_RANGES.get(current_stage, (None, None))
+                    message = event.get("message") or _STAGE_MESSAGES.get(
+                        current_stage, current_stage or "Working"
+                    )
+                    if low is not None:
+                        progress_callback(low, f"{message}…")
+                elif kind == "progress":
+                    stage = event.get("stage") or current_stage
+                    if stage != current_stage:
+                        current_stage = stage
+                    rng = _STAGE_RANGES.get(stage)
+                    total = event.get("total") or 0
+                    current = event.get("current") or 0
+                    if rng and total > 0:
+                        low, high = rng
+                        ratio = max(0.0, min(1.0, current / total))
+                        pct = int(round(low + (high - low) * ratio))
+                        message = _STAGE_MESSAGES.get(stage, stage)
+                        progress_callback(pct, f"{message}… ({int(round(ratio * 100))}%)")
+                elif kind == "done":
+                    output = event.get("output")
+                    msg = "Footage extraction completed successfully"
+                    if output:
+                        msg = f"{msg}: {Path(output).name}"
+                    progress_callback(100, msg)
+                elif kind == "error":
+                    last_error = {
+                        "type": event.get("type", "Error"),
+                        "message": event.get("message", "Unknown error"),
+                    }
+                    logger.error(
+                        "CLI error: %s: %s",
+                        last_error["type"], last_error["message"],
+                    )
+                elif kind == "info":
+                    logger.info("CLI info: %s", event.get("message", ""))
+                elif kind == "warning":
+                    logger.warning("CLI warning: %s", event.get("message", ""))
+
+        return last_error
+
+    def _parse_event_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """Parse a single CLI output line as a JSON event.
+
+        Returns the parsed dict for valid event objects; logs and returns None
+        for anything else so unexpected lines (tracebacks, ffmpeg output, etc.)
+        never break progress tracking.
+        """
+        if not (line.startswith("{") and line.endswith("}")):
+            logger.info("CLI Output (non-event): %s", line)
+            return None
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            logger.info("CLI Output (non-event): %s", line)
+            return None
+        if not isinstance(event, dict) or "event" not in event:
+            logger.info("CLI Output (non-event): %s", line)
+            return None
+        return event
+
+    def _handle_cli_line(
+        self,
+        line: str,
+        progress_callback: Callable[[int, str], None],
+        current_stage_ref,
+    ) -> None:
+        """Used to flush a final trailing partial line at EOF."""
+        if not line:
+            return
+        event = self._parse_event_line(line)
+        if event is None:
+            return
+        # Final-line handling is best-effort and rare in practice; we just log.
+        logger.info("CLI trailing event: %s", event)
 
     def _generate_output_filename(self, request: ExtractRequest) -> str:
         """
