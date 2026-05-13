@@ -47,8 +47,9 @@ class ExacqManService:
             output_filename = self._generate_output_filename(request)
             
             # Build command arguments
+            # Using -u flag for unbuffered output so we can read subprocess output in real-time
             cmd_args = [
-                "python3", self.exacqman_path,
+                "python3", "-u", self.exacqman_path,
                 "extract",
                 request.camera_alias,
                 start_date,
