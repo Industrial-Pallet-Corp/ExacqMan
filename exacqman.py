@@ -394,8 +394,8 @@ def process_video(original_video_path: str, output_video_path: str = None, times
     font_scale = calculate_font_scale(crop_width)
 
     reporter.stage(
-        "frame_processing",
-        "Processing frames",
+        "timelapsing",
+        "Timelapsing footage",
         output=output_video_path,
         total_frames=total_frames,
     )
@@ -429,7 +429,7 @@ def process_video(original_video_path: str, output_video_path: str = None, times
 
         success, frame = vid.read()
         count += 1
-        reporter.update("frame_processing", count, total_frames, unit="frames")
+        reporter.update("timelapsing", count, total_frames, unit="frames")
 
     writer.release()
     vid.release()

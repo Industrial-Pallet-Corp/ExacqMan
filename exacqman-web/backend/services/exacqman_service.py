@@ -21,20 +21,20 @@ logger = logging.getLogger(__name__)
 # CLI `progress` events are scaled linearly into [low, high). On `stage` entry,
 # web progress jumps to `low`. On `done`, web progress is 100.
 _STAGE_RANGES = {
-    "request":          (0,  1),
-    "export_wait":      (1,  10),
-    "export_download":  (10, 25),
-    "frame_processing": (25, 75),
-    "compression":      (75, 99),
+    "request":         (0,  1),
+    "export_wait":     (1,  10),
+    "export_download": (10, 25),
+    "timelapsing":     (25, 75),
+    "compression":     (75, 99),
 }
 
 # Human-readable messages per stage shown in the web UI.
 _STAGE_MESSAGES = {
-    "request":          "Requesting export from server",
-    "export_wait":      "Server preparing export",
-    "export_download":  "Downloading footage",
-    "frame_processing": "Processing frames",
-    "compression":      "Compressing video",
+    "request":         "Requesting export from server",
+    "export_wait":     "Server preparing export",
+    "export_download": "Downloading footage",
+    "timelapsing":     "Timelapsing footage",
+    "compression":     "Compressing video",
 }
 
 class ExacqManService:
