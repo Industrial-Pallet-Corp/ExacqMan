@@ -1,10 +1,10 @@
 import requests, json
 from requests.exceptions import RequestException
 from time import sleep
-from pprint import pprint
-from tqdm import tqdm
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+
+from progress import get_reporter
 
 
 class ExacqvisionError(Exception):
@@ -55,8 +55,6 @@ class Exacqvision:
         response = requests.request("POST", url, headers=headers, data=payload)
         session_id = json.loads(response.text)['sessionId']
 
-        #pprint(response.json())
-        # print(session_id)
         return session_id
 
 
@@ -134,7 +132,6 @@ class Exacqvision:
         start, stop = self.convert_datetime_to_iso8601(self.timezone, start, stop)
 
         url = f"{self.base_url}/v1/search.web?s={self.session}&start={start}&end={stop}&camera={camera_id}&output=json"
-        # print(url)
 
         try:
             response = requests.request("GET", url)
@@ -173,14 +170,15 @@ class Exacqvision:
         if not any(int(camera['id']) == int(camera_id) for camera in cameras):
             raise ExacqvisionError(f'CameraID: {camera_id} is not found in server')
 
-        print('Creating export request.')
+        reporter = get_reporter()
+        reporter.stage("request", "Requesting export from server")
         try:
             response = requests.request("GET", url)
             response.raise_for_status()
             export_id = json.loads(response.text).get('export_id')
             if not export_id:
                 raise ExacqvisionError("Export creation failed: No export ID found in the response.")
-            print(f'Export request created. Export ID is {export_id}')
+            reporter.info(f"Export ID: {export_id}", export_id=export_id)
             return export_id
         except (RequestException, ValueError, KeyError) as e:
             raise ExacqvisionError(f"Export request failed: {str(e)}")
@@ -201,14 +199,8 @@ class Exacqvision:
 
         response = requests.request("GET", url)
         progress = int(json.loads(response.text)['progress'])
-        #pprint(response.json())
-        
-        if progress == 100:
-            print('Export ready')
-            return True, progress
-        else:
-            print(f'Export in progress: {progress}% complete')
-            return False, progress
+
+        return progress == 100, progress
 
 
     def export_download(self, export_id:str) -> str:
@@ -224,32 +216,36 @@ class Exacqvision:
 
         url = f"{self.base_url}/v1/export.web?export={export_id}&action=download"
 
-        response = requests.get(url, stream=True) # Setting stream to true is necessary to keep the progress bar updating while downloading the file.
+        # Setting stream=True is necessary to read the response body in chunks.
+        response = requests.get(url, stream=True)
 
         file_name = response.headers.get('Content-Disposition').split('filename=')[-1].strip('"')
-
         total_size = int(response.headers.get('content-length', 0))
 
-        try:
-            # Open the file in write-binary mode and initialize the progress bar
-            with open(file_name, 'wb') as file, tqdm(
-                desc=file_name,
-                total=total_size,
-                unit='iB',
-                unit_scale=True,
-                unit_divisor=1024,
-                leave=False
-                # ncols=80,  # Adjust the width of the progress bar
-            ) as bar:
-                # Iterate over the response data in chunks and update the progress bar
-                for data in response.iter_content(chunk_size=1024):
-                    size = file.write(data)
-                    bar.update(size)
+        reporter = get_reporter()
+        reporter.stage(
+            "export_download",
+            "Downloading footage",
+            filename=file_name,
+            total_bytes=total_size,
+        )
 
+        try:
+            with open(file_name, 'wb') as file:
+                total_bytes_written = 0
+                for data in response.iter_content(chunk_size=65536):
+                    total_bytes_written += file.write(data)
+                    if total_size > 0:
+                        reporter.update(
+                            "export_download",
+                            total_bytes_written,
+                            total_size,
+                            unit="bytes",
+                        )
         except Exception as e:
             raise ExacqvisionError(f"Download failed at {datetime.now()}: {str(e)}")
 
-        print(f"Video saved successfully as {file_name}!")
+        reporter.info(f"Saved {file_name}", filename=file_name, bytes_written=total_bytes_written)
 
         return file_name
 
@@ -281,32 +277,37 @@ class Exacqvision:
             ExacqvisionError: If the export or download fails.
             ExacqvisionTimeoutError: If the export status fails to reach 100%.
         """
+        reporter = get_reporter()
         export_id = None
         try:
             export_id = self.export_request(camera, start, stop, name=video_filename)
             sleep(2)  # Wait briefly before checking status
 
+            reporter.stage("export_wait", "Waiting for server to prepare export")
+
             retries = 0
             ready_to_export, progress = self.export_status(export_id)
+            reporter.update("export_wait", progress, 100, unit="percent")
 
             while not ready_to_export and retries <= num_of_retries:
                 sleep(5)
                 ready_to_export, updated_progress = self.export_status(export_id)
+                reporter.update("export_wait", updated_progress, 100, unit="percent")
 
                 # If progress doesn't move, tally a retry
-                if  updated_progress == progress:
+                if updated_progress == progress:
                     retries += 1
                 else:
                     retries = 0
 
-                progress = updated_progress # set progress to the last value received
+                progress = updated_progress  # set progress to the last value received
 
             if retries > num_of_retries:
                 raise ExacqvisionTimeoutError(f"Export {export_id} progress stalled for too long.")
-            
+
             return self.export_download(export_id)
 
-        except ExacqvisionError as e:
+        except Exception as e:
             raise ExacqvisionError(f"Failed to get video: {str(e)}")
         finally:
             if export_id:

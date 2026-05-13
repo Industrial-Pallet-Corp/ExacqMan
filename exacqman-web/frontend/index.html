@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExacqMan Interface</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎥</text></svg>">
+</head>
+<body>
+    <!-- Header Section -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="company-logo">
+                    <img src="images/industrial-pallet-corp-logo.svg" alt="Industrial Pallet Corp." class="logo-image">
+                </div>
+                <h1>ExacqMan</h1>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Application Container -->
+    <main class="main-container">
+        <!-- Configuration Panel -->
+        <section class="config-panel" id="config-panel">
+            <h2>Configuration</h2>
+            <div class="config-form">
+                <div class="form-group">
+                    <label for="config-select">Configuration File: <span class="required">*</span></label>
+                    <select id="config-select" class="form-control" required disabled>
+                        <option value="">Loading configurations...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="server-select">Server: <span class="required">*</span></label>
+                    <select id="server-select" class="form-control" required disabled>
+                        <option value="">Waiting for configuration...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="camera-select">Camera: <span class="required">*</span></label>
+                    <select id="camera-select" class="form-control" required disabled>
+                        <option value="">Waiting for configuration...</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Extraction Parameters -->
+        <section class="extraction-panel" id="extraction-panel">
+            <h2>Footage Extraction</h2>
+            <form id="extraction-form" class="extraction-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="start-datetime">Start Date & Time:</label>
+                        <input type="datetime-local" id="start-datetime" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="end-datetime">End Date & Time:</label>
+                        <input type="datetime-local" id="end-datetime" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="multiplier-select">Timelapse Multiplier:</label>
+                    <select id="multiplier-select" class="form-control" required>
+                        <option value="50">50x (Default)</option>
+                        <option value="1">1x (Real Time)</option>
+                        <option value="2">2x (Fast)</option>
+                        <option value="5">5x (Faster)</option>
+                        <option value="10">10x (Very Fast)</option>
+                        <option value="15">15x (Ultra Fast)</option>
+                        <option value="20">20x (Extreme)</option>
+                        <option value="25">25x (Lightning)</option>
+                        <option value="30">30x (Blazing)</option>
+                        <option value="40">40x (Supersonic)</option>
+                        <option value="50">50x (Light Speed)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="submit" id="extract-button" class="btn btn-primary" disabled>
+                        <span class="btn-text">Extract Footage</span>
+                        <span class="btn-loading" style="display: none;">Processing...</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Job Status Panel -->
+        <section class="status-panel" id="status-panel">
+            <h2>Job Status</h2>
+            <div class="job-list" id="job-list">
+                <div class="no-jobs">No active jobs</div>
+            </div>
+        </section>
+
+        <!-- File Browser -->
+        <section class="files-panel" id="files-panel">
+            <div class="files-header">
+                <h2>Extracted Footage</h2>
+            </div>
+            <div class="files-list" id="files-list">
+                <div class="no-files">Loading files...</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Processing...</div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/utils/local-storage.js"></script>
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

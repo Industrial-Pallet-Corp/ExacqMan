@@ -5,12 +5,11 @@ from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse as duparse
 from zoneinfo import ZoneInfo
-from tqdm import tqdm
 from ast import literal_eval
 from exacqvision import Exacqvision, ExacqvisionError
+from progress import init_reporter, get_reporter
 import cv2
 import argparse
-import sys
 
 
 @dataclass
@@ -49,9 +48,38 @@ class Settings:
     def from_args_and_config(cls, args: argparse.Namespace, config: ConfigParser = ConfigParser()) -> 'Settings':
         """Merge argparse, config file, and defaults in that priority."""
         
-        def set_value(arg_value = None, config_value = None, cls_value = None):
-            ''' Sets correct value for each variable respecting priority: argParse > configParser > defaults '''
-            return getattr(args, arg_value, None) or config_value or cls_value if arg_value else (config_value or cls_value) # Skip the arg check if there is no arg_value (otherwise it crashes with a TypeError)
+        def set_value(arg_value = None, config_value = None, cls_value = None, required = False):
+            """
+            Sets correct value respecting priority: command-line args > [Runtime] config > defaults
+            Args:
+                arg_value: Name of command-line argument
+                config_value: Value from [Runtime] config section  
+                cls_value: Default value from class
+                required: If True, raise error if no value found
+            """
+            # First priority: command-line argument
+            if arg_value:
+                arg_val = getattr(args, arg_value, None)
+                if arg_val is not None and str(arg_val).strip():
+                    return arg_val
+            
+            # Second priority: [Runtime] config value (only if not empty)
+            if config_value is not None and str(config_value).strip():
+                return config_value
+            
+            # Third priority: class default
+            if cls_value is not None:
+                return cls_value
+            
+            # Required parameter missing
+            if required:
+                raise ValueError(f"Required parameter {arg_value or 'config'} is missing")
+            
+            return None
+
+        # Calculate server and camera_alias first for use in server_ip and camera_id
+        server = set_value(arg_value='server', config_value=config.get('Runtime', 'server', fallback='') if config.has_section('Runtime') else None, cls_value=cls.server)
+        camera_alias = set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback='') if config.has_section('Runtime') else None, cls_value=cls.camera_alias)
 
         # Build settings with priority: args > config > default
         return cls(
@@ -68,15 +96,15 @@ class Settings:
             font_weight=int(set_value(config_value=config.get('Settings','font_weight',fallback=''), cls_value=cls.font_weight)),
             caption=set_value(arg_value='caption', config_value=config.get('Settings', 'caption', fallback='').upper(),cls_value=cls.caption),
 
-            server=set_value(arg_value='server', config_value=config.get('Runtime', 'server', fallback=''), cls_value=cls.server),
-            server_ip=config['Network'].get(set_value(arg_value='server', config_value=config['Runtime']['server'])) if 'Network' in config else None,
-            camera_alias=set_value(arg_value='camera_alias', config_value=config.get('Runtime','camera_alias',fallback=''), cls_value=cls.camera_alias),
-            camera_id=config['Cameras'].get(set_value(arg_value='camera_alias', config_value=config['Runtime']['camera_alias'])) if 'Cameras' in config else None,
+            server=server,
+            server_ip=config['Network'].get(server) if 'Network' in config and server else None,
+            camera_alias=camera_alias,
+            camera_id=config['Cameras'].get(camera_alias) if 'Cameras' in config and camera_alias else None,
             input_filename=set_value(arg_value='video_filename', cls_value=cls.input_filename),
-            output_filename=set_value(arg_value='output_name', config_value=config.get('Runtime','filename',fallback=''), cls_value=cls.output_filename),
-            date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback=''), cls_value=cls.date),
-            start_time=set_value(arg_value='start', config_value=config.get('Runtime','start_time',fallback=''), cls_value=cls.start_time),
-            end_time=set_value(arg_value='end', config_value=config.get('Runtime','end_time',fallback=''), cls_value=cls.end_time)
+            output_filename=set_value(arg_value='output_name', config_value=config.get('Runtime','filename',fallback='') if config.has_section('Runtime') else None, cls_value=cls.output_filename),
+            date=set_value(arg_value='date', config_value=config.get('Runtime','date',fallback='') if config.has_section('Runtime') else None, cls_value=cls.date),
+            start_time=set_value(arg_value='start', config_value=config.get('Runtime','start_time',fallback='') if config.has_section('Runtime') else None, cls_value=cls.start_time),
+            end_time=set_value(arg_value='end', config_value=config.get('Runtime','end_time',fallback='') if config.has_section('Runtime') else None, cls_value=cls.end_time)
         )
 
 
@@ -181,10 +209,12 @@ def validate_config(config: ConfigParser) -> bool:
             errors.append(f'Caption Character limit of {Settings.caption_limit} exceeded.')
             fatal = True
 
-    server = config['Runtime']['server']
-    if server not in config['Network']:
-        errors.append(f'Server {server} not found in the Network list')
-        fatal = True
+    # Only validate Runtime section if it exists
+    if config.has_section('Runtime') and 'server' in config['Runtime']:
+        server = config['Runtime']['server']
+        if server not in config['Network']:
+            errors.append(f'Server {server} not found in the Network list')
+            fatal = True
 
     for camera_number, camera_value in config['Cameras'].items():
         if not camera_value.strip():
@@ -226,6 +256,7 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         SystemExit: If the original video file cannot be opened.
         TypeError: If the timelapse multiplier is invalid.
     """
+    reporter = get_reporter()
 
     def fit_to_screen(frame, window_name, screen_width, screen_height):
         """Resize a frame to fit within the screen dimensions."""
@@ -275,8 +306,11 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         h = int(h / scale)
 
         coords = ((x,y),(w,h))
-        print(f'Crop coordinates selected: {coords}')
-        print(f'For future use: Copy this into config file under [Settings]: crop_dimensions = {coords}')
+        reporter.info(f"Crop coordinates selected: {coords}", crop_dimensions=coords)
+        reporter.info(
+            f"For future use: copy this into config file under [Settings]: "
+            f"crop_dimensions = {coords}"
+        )
         return coords
 
 
@@ -314,7 +348,8 @@ def process_video(original_video_path: str, output_video_path: str = None, times
     if not original_video_path.endswith('.mp4'):
         original_video_path = original_video_path + '.mp4'
 
-    # Ensure multiplier is an integer greater than 0 or default to 10
+    # Multiplier must be a positive integer; this is the final guard after
+    # Settings has already applied its arg/config/default priority.
     if multiplier <= 0 or not isinstance(multiplier, int):
         raise TypeError("Timelapse multiplier must be a positive integer.")
 
@@ -324,8 +359,8 @@ def process_video(original_video_path: str, output_video_path: str = None, times
 
     vid = cv2.VideoCapture(original_video_path)
     if not vid.isOpened():
-        print("Error: Could not open video file.")
-        exit()
+        reporter.error("VideoOpenError", f"Could not open video file: {original_video_path}")
+        exit(1)
 
     fps = vid.get(cv2.CAP_PROP_FPS)
     success, frame = vid.read()
@@ -337,36 +372,44 @@ def process_video(original_video_path: str, output_video_path: str = None, times
             settings.crop_dimensions = select_crop(frame)
 
         (x, y), (crop_width, crop_height) = settings.crop_dimensions
-        
+
         # Validate crop dimensions
         if x + crop_width > width or y + crop_height > height:
-            print(f"Warning: Crop dimensions ({x}, {y}, {crop_width}, {crop_height}) exceed frame size ({width}, {height})")
-            # Adjust crop dimensions to fit within frame
+            reporter.warning(
+                f"Crop dimensions ({x}, {y}, {crop_width}, {crop_height}) "
+                f"exceed frame size ({width}, {height})"
+            )
             crop_width = min(crop_width, width - x)
             crop_height = min(crop_height, height - y)
-            print(f"Adjusted to: ({x}, {y}, {crop_width}, {crop_height})")
+            reporter.info(f"Adjusted crop to: ({x}, {y}, {crop_width}, {crop_height})")
     else:
         crop_width, crop_height = width, height
         x, y = 0, 0
 
-    total_frames = vid.get(cv2.CAP_PROP_FRAME_COUNT)
+    total_frames = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
     if timestamps:
         number_of_timestamps = len(timestamps)
 
     font_scale = calculate_font_scale(crop_width)
 
-    print(f'Processing Video ({output_video_path})...')
-    pbar = tqdm(total=total_frames, leave=False)
+    reporter.stage(
+        "timelapsing",
+        "Timelapsing footage",
+        output=output_video_path,
+        total_frames=total_frames,
+    )
     # Use crop dimensions for output video
     writer = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (crop_width, crop_height))
     count = 0
 
     while success:
         if settings.crop:
-            # Ensure crop stays within bounds
             finished_frame = frame[y:y+crop_height, x:x+crop_width]
             if finished_frame.shape[:2] != (crop_height, crop_width):
-                print(f"Warning: Cropped frame size {finished_frame.shape[:2]} doesn't match expected ({crop_height}, {crop_width})")
+                reporter.warning(
+                    f"Cropped frame size {finished_frame.shape[:2]} doesn't match "
+                    f"expected ({crop_height}, {crop_width})"
+                )
         else:
             finished_frame = frame
 
@@ -385,13 +428,11 @@ def process_video(original_video_path: str, output_video_path: str = None, times
 
         success, frame = vid.read()
         count += 1
-        pbar.update(1)
+        reporter.update("timelapsing", count, total_frames, unit="frames")
 
-    pbar.close()
     writer.release()
     vid.release()
-    
-    print(f'{output_video_path} successfully processed.')
+
     return output_video_path
 
 
@@ -436,12 +477,18 @@ def compress_video(original_video_path: str, compressed_video_path: str = None, 
     if settings.crop:
         resolution = settings.crop_dimensions[1] # crop_dimensions[1] gives (width,height)
 
-    print(f'Beginning Video compression...')
+    reporter = get_reporter()
+    reporter.stage("compression", "Compressing video", output=compressed_video_path)
 
     with VideoFileClip(original_video_path, target_resolution=resolution) as video:
-        video.write_videofile(compressed_video_path, bitrate=bitrate, codec=codec) #libx264 gave really good compression per runtime
-    
-    print(f'Video successfully compressed.')
+        # Funnel MoviePy's proglog progress into our reporter so it drives a
+        # single, real per-frame compression progress bar (and JSON events).
+        video.write_videofile(
+            compressed_video_path,
+            bitrate=bitrate,
+            codec=codec,
+            logger=reporter.moviepy_logger("compression"),
+        )
 
     return compressed_video_path
 
@@ -452,7 +499,10 @@ def parse_arguments():
 
     Supports three subcommands: 'extract' (retrieve and process video from Exacqvision),
     'compress' (compress an existing video), and 'timelapse' (apply timelapse effect).
-    Displays help text and exits if an invalid command is provided.
+    A subcommand is required; argparse prints usage and exits if one isn't provided.
+
+    Also accepts global options that apply to every subcommand:
+    --progress-format {auto,human,json} and -q/--quiet.
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.
@@ -460,7 +510,23 @@ def parse_arguments():
 
     arg_parser = argparse.ArgumentParser()
 
-    subparsers = arg_parser.add_subparsers(dest='command')
+    # Global progress-tracking options apply to every subcommand.
+    arg_parser.add_argument(
+        '--progress-format',
+        choices=['auto', 'human', 'json'],
+        default='auto',
+        help=(
+            'Progress output format. "auto" picks json when stdout is not a TTY '
+            'or when EXACQMAN_PROGRESS_FORMAT=json, otherwise human.'
+        ),
+    )
+    arg_parser.add_argument(
+        '-q', '--quiet',
+        action='store_true',
+        help='Suppress informational messages in human output mode.',
+    )
+
+    subparsers = arg_parser.add_subparsers(dest='command', required=True)
 
     # Extract mode subcommand
     extract_parser = subparsers.add_parser('extract', help='Extract, timelapse, and compress a video file')
@@ -489,11 +555,6 @@ def parse_arguments():
     timelapse_parser.add_argument('-o', '--output_name', default=None, type=str, help='Desired filepath')
     timelapse_parser.add_argument('-c', '--crop', action='store_true', help='Crop the video. Set by config file or query user.')
     timelapse_parser.add_argument('--caption', type=str, help='Add caption above timestamp (max of 40 chars)')
-
-    # Prints help text if the command doesn't begin with default, timelapse, or compress
-    if len(sys.argv) < 2 or sys.argv[1] not in ['extract', 'timelapse', 'compress']:
-        arg_parser.print_help()
-        exit(1)
 
     return arg_parser.parse_args()
 
@@ -540,8 +601,13 @@ def main():
     Uses a configuration file and command-line arguments to set parameters.
     """
     global settings
-    
+
     args = parse_arguments()
+
+    # Initialize the global progress reporter as early as possible so any
+    # downstream code path (including config errors) can use it.
+    reporter = init_reporter(format=args.progress_format, quiet=args.quiet)
+
     config = None
 
     # If config file is specified in args, then read the config.
@@ -551,36 +617,54 @@ def main():
 
     settings = Settings.from_args_and_config(args, config) if config else Settings.from_args_and_config(args)
 
-    if args.command == 'extract':
-    
-        cameras = settings.cameras
-        timezone = ZoneInfo(settings.timezone)
+    try:
+        if args.command == 'extract':
 
-        start, end = convert_input_to_datetime(settings.date, settings.start_time, settings.end_time)
+            cameras = settings.cameras
+            timezone = ZoneInfo(settings.timezone)
 
+            start, end = convert_input_to_datetime(settings.date, settings.start_time, settings.end_time)
 
-        # Instantiate api class and retrieve video
-        exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone)
+            # Instantiate api class and retrieve video
+            exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone)
 
-        try:
-            extracted_video_name = exapi.get_video(settings.camera_id, start, end, video_filename=settings.output_filename)
-            exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone) # Reinstantiated object because of auth token timeout.
-            video_timestamps = exapi.get_timestamps(settings.camera_id, start, end)
-        except ExacqvisionError as e:
-            print(f'Failed to get video. Make sure selected camera: {settings.camera_alias} is part of selected server: {settings.server}. {e}')
-            exit(1)
-        finally:
-            exapi.logout()
+            try:
+                extracted_video_name = exapi.get_video(settings.camera_id, start, end, video_filename=settings.output_filename)
+                exapi = Exacqvision(settings.server_ip, settings.user, settings.password, timezone)  # Reinstantiated object because of auth token timeout.
+                video_timestamps = exapi.get_timestamps(settings.camera_id, start, end)
+            except ExacqvisionError as e:
+                reporter.error(
+                    "ExacqvisionError",
+                    (
+                        f"Failed to get video. Make sure selected camera: "
+                        f"{settings.camera_alias} is part of selected server: "
+                        f"{settings.server}. {e}"
+                    ),
+                )
+                exit(1)
+            finally:
+                exapi.logout()
 
-        processed_video_path = process_video(extracted_video_name, timestamps=video_timestamps)
-        compress_video(processed_video_path)
+            processed_video_path = process_video(extracted_video_name, timestamps=video_timestamps)
+            final_path = compress_video(processed_video_path)
+            reporter.done(output=final_path)
 
-    elif args.command == 'compress':
-        compress_video(settings.input_filename, settings.output_filename)
+        elif args.command == 'compress':
+            final_path = compress_video(settings.input_filename, settings.output_filename)
+            reporter.done(output=final_path)
 
-    elif args.command == 'timelapse':
+        elif args.command == 'timelapse':
+            final_path = process_video(settings.input_filename, settings.output_filename)
+            reporter.done(output=final_path)
 
-        process_video(settings.input_filename, settings.output_filename)
+    except SystemExit:
+        # exit() was called intentionally; let it propagate without an extra error event.
+        raise
+    except Exception as e:
+        reporter.error(type(e).__name__, str(e))
+        raise
+    finally:
+        reporter.close()
 
 
 if __name__ == "__main__":
