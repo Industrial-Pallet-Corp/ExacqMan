@@ -256,6 +256,7 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         SystemExit: If the original video file cannot be opened.
         TypeError: If the timelapse multiplier is invalid.
     """
+    reporter = get_reporter()
 
     def fit_to_screen(frame, window_name, screen_width, screen_height):
         """Resize a frame to fit within the screen dimensions."""
@@ -305,7 +306,6 @@ def process_video(original_video_path: str, output_video_path: str = None, times
         h = int(h / scale)
 
         coords = ((x,y),(w,h))
-        reporter = get_reporter()
         reporter.info(f"Crop coordinates selected: {coords}", crop_dimensions=coords)
         reporter.info(
             f"For future use: copy this into config file under [Settings]: "
@@ -348,15 +348,14 @@ def process_video(original_video_path: str, output_video_path: str = None, times
     if not original_video_path.endswith('.mp4'):
         original_video_path = original_video_path + '.mp4'
 
-    # Ensure multiplier is an integer greater than 0 or default to 10
+    # Multiplier must be a positive integer; this is the final guard after
+    # Settings has already applied its arg/config/default priority.
     if multiplier <= 0 or not isinstance(multiplier, int):
         raise TypeError("Timelapse multiplier must be a positive integer.")
 
     # If not specified, rename the output file to the same as input with speed appended to it (e.g. video_4x.mp4)
     if output_video_path is None:
         output_video_path=f'_{multiplier}x.'.join(original_video_path.split('.'))
-
-    reporter = get_reporter()
 
     vid = cv2.VideoCapture(original_video_path)
     if not vid.isOpened():
@@ -500,7 +499,10 @@ def parse_arguments():
 
     Supports three subcommands: 'extract' (retrieve and process video from Exacqvision),
     'compress' (compress an existing video), and 'timelapse' (apply timelapse effect).
-    Displays help text and exits if an invalid command is provided.
+    A subcommand is required; argparse prints usage and exits if one isn't provided.
+
+    Also accepts global options that apply to every subcommand:
+    --progress-format {auto,human,json} and -q/--quiet.
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.

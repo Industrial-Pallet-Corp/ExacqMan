@@ -1,7 +1,6 @@
 import requests, json
 from requests.exceptions import RequestException
 from time import sleep
-from pprint import pprint
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -56,8 +55,6 @@ class Exacqvision:
         response = requests.request("POST", url, headers=headers, data=payload)
         session_id = json.loads(response.text)['sessionId']
 
-        #pprint(response.json())
-        # print(session_id)
         return session_id
 
 
@@ -135,7 +132,6 @@ class Exacqvision:
         start, stop = self.convert_datetime_to_iso8601(self.timezone, start, stop)
 
         url = f"{self.base_url}/v1/search.web?s={self.session}&start={start}&end={stop}&camera={camera_id}&output=json"
-        # print(url)
 
         try:
             response = requests.request("GET", url)
@@ -311,8 +307,6 @@ class Exacqvision:
 
             return self.export_download(export_id)
 
-        except ExacqvisionError as e:
-            raise ExacqvisionError(f"Failed to get video: {str(e)}")
         except Exception as e:
             raise ExacqvisionError(f"Failed to get video: {str(e)}")
         finally:

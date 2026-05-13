@@ -157,11 +157,9 @@ class ExacqManService:
             chunk = await process.stdout.read(8192)
             if not chunk:
                 if buffer:
-                    self._handle_cli_line(
-                        buffer.decode("utf-8", errors="replace").strip(),
-                        progress_callback,
-                        current_stage_ref=lambda: current_stage,
-                    )
+                    trailing = buffer.decode("utf-8", errors="replace").strip()
+                    if trailing:
+                        logger.info("CLI Output (trailing, no newline): %s", trailing)
                 break
             buffer += chunk
             while b"\n" in buffer:
@@ -175,6 +173,12 @@ class ExacqManService:
                 kind = event.get("event")
                 if kind == "stage":
                     current_stage = event.get("stage") or current_stage
+                    if current_stage and current_stage not in _STAGE_RANGES:
+                        logger.warning(
+                            "Unknown CLI stage '%s' (no _STAGE_RANGES entry); "
+                            "progress for this stage will not advance the web UI.",
+                            current_stage,
+                        )
                     low, _ = _STAGE_RANGES.get(current_stage, (None, None))
                     message = event.get("message") or _STAGE_MESSAGES.get(
                         current_stage, current_stage or "Working"
@@ -235,21 +239,6 @@ class ExacqManService:
             logger.info("CLI Output (non-event): %s", line)
             return None
         return event
-
-    def _handle_cli_line(
-        self,
-        line: str,
-        progress_callback: Callable[[int, str], None],
-        current_stage_ref,
-    ) -> None:
-        """Used to flush a final trailing partial line at EOF."""
-        if not line:
-            return
-        event = self._parse_event_line(line)
-        if event is None:
-            return
-        # Final-line handling is best-effort and rare in practice; we just log.
-        logger.info("CLI trailing event: %s", event)
 
     def _generate_output_filename(self, request: ExtractRequest) -> str:
         """
